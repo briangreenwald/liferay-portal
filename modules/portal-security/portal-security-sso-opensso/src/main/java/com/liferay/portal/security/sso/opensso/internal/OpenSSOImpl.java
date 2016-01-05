@@ -12,7 +12,7 @@
  * details.
  */
 
-package com.liferay.portal.security.sso.opensso;
+package com.liferay.portal.security.sso.opensso.internal;
 
 import com.liferay.portal.kernel.io.unsync.UnsyncBufferedReader;
 import com.liferay.portal.kernel.log.Log;
@@ -251,8 +251,8 @@ public class OpenSSOImpl implements OpenSSO {
 		}
 
 		if (!hasCookieNames) {
-			if (_log.isWarnEnabled()) {
-				_log.warn(
+			if (_log.isInfoEnabled()) {
+				_log.info(
 					"User is not logged in because he has no OpenSSO cookies");
 			}
 
