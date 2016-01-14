@@ -189,6 +189,7 @@ public class PortalSettingsEditLDAPServerMVCActionCommand
 			throw new LDAPServerNameException();
 		}
 
+		//TBD may need to rethink this one
 		List<LDAPServerConfiguration> ldapServerConfigurations =
 			_ldapServerConfigurationProvider.getConfigurations(companyId);
 

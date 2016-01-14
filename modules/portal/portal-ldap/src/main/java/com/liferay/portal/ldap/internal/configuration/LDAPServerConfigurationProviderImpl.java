@@ -186,14 +186,7 @@ public class LDAPServerConfigurationProviderImpl
 		List<LDAPServerConfiguration> ldapServerConfigurations =
 			new ArrayList<>(configurationsProperties.size());
 
-		if (ListUtil.isEmpty(configurationsProperties)) {
-			LDAPServerConfiguration ldapServerConfiguration =
-				Configurable.createConfigurable(
-					getMetatype(), new HashMapDictionary<>());
-
-			ldapServerConfigurations.add(ldapServerConfiguration);
-		}
-		else {
+		if (!ListUtil.isEmpty(configurationsProperties)) {
 			for (Dictionary<String, Object> configurationProperties :
 					configurationsProperties) {
 
