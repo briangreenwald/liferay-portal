@@ -37,6 +37,7 @@ boolean ldapPasswordPolicyEnabled = ldapAuthConfiguration.passwordPolicyEnabled(
 
 <h3><liferay-ui:message key="ldap-servers" /></h3>
 
+//TBD another potential problem
 <c:if test="<%= ldapAuthEnabled && ldapServerConfigurations.isEmpty() %>">
 	<div class="alert alert-info">
 		<liferay-ui:message key="default-ldap-server-settings-are-in-use-please-add-an-ldap-server-to-override-the-default-settings" />
