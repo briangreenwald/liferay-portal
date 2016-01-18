@@ -152,11 +152,7 @@ public class PortalSettingsLDAPFormMVCActionCommand
 		String... propertyNames) {
 
 		Dictionary<String, Object> properties =
-			configurationProvider.getConfigurationProperties(companyId, false);
-
-		if (properties == null) {
-			properties = new HashMapDictionary<>();
-		}
+			configurationProvider.getConfigurationProperties(companyId);
 
 		for (String propertyName : propertyNames) {
 			boolean value = ParamUtil.getBoolean(
