@@ -190,8 +190,29 @@ public class PortalSettingsEditLDAPServerMVCActionCommand
 		}
 
 		//TBD may need to rethink this one
+		/*
+			Given that no servers are configured for companyId OR defaults and
+			useDefault = false
+
+			Old implementation: an empty List is returned; no other server names
+			to check against
+			New implementation: an empty List is returned; no other server names
+								to check against
+
+			Given that no servers configured for companyId and
+			useDefault = false, BUT there is a default configured:
+
+			Old implementation: an empty List is returned; no other server names
+			to check against
+			New implementation: an empty List is returned; no other server names
+								to check against
+
+			So it looks like in either case, the functionality is the same
+
+		 */
 		List<LDAPServerConfiguration> ldapServerConfigurations =
-			_ldapServerConfigurationProvider.getConfigurations(companyId);
+			_ldapServerConfigurationProvider.getConfigurations(
+				companyId); // , false);
 
 		for (LDAPServerConfiguration ldapServerConfiguration :
 				ldapServerConfigurations) {
