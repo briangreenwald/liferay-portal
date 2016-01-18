@@ -196,19 +196,21 @@ public class LDAPServerConfigurationProviderImpl
 		List<Dictionary<String, Object>> configurationsProperties =
 			getConfigurationsProperties(companyId, useDefault);
 
+		if (ListUtil.isEmpty(configurationsProperties)) {
+			return Collections.emptyList();
+		}
+
 		List<LDAPServerConfiguration> ldapServerConfigurations =
 			new ArrayList<>(configurationsProperties.size());
 
-		if (!ListUtil.isEmpty(configurationsProperties)) {
-			for (Dictionary<String, Object> configurationProperties :
-					configurationsProperties) {
+		for (Dictionary<String, Object> configurationProperties :
+				configurationsProperties) {
 
-				LDAPServerConfiguration ldapServerConfiguration =
-					Configurable.createConfigurable(
-						getMetatype(), configurationProperties);
+			LDAPServerConfiguration ldapServerConfiguration =
+				Configurable.createConfigurable(
+					getMetatype(), configurationProperties);
 
-				ldapServerConfigurations.add(ldapServerConfiguration);
-			}
+			ldapServerConfigurations.add(ldapServerConfiguration);
 		}
 
 		return ldapServerConfigurations;
@@ -232,18 +234,20 @@ public class LDAPServerConfigurationProviderImpl
 			configurations = _configurations.get(CompanyConstants.SYSTEM);
 		}
 
-		if (MapUtil.isEmpty(configurations)) {
-			return Collections.emptyList();
-		}
-
 		List<Dictionary<String, Object>> configurationsProperties =
 			new ArrayList<>(configurations.size());
 
-		for (Configuration configuration : configurations.values()) {
-			Dictionary<String, Object> properties =
-				configuration.getProperties();
+		if (MapUtil.isEmpty(configurations) && useDefault) {
+			configurationsProperties.add(
+				new HashMapDictionary<String, Object>());
+		}
+		else if (!MapUtil.isEmpty(configurations)) {
+			for (Configuration configuration : configurations.values()) {
+				Dictionary<String, Object> properties =
+					configuration.getProperties();
 
-			configurationsProperties.add(properties);
+				configurationsProperties.add(properties);
+			}
 		}
 
 		return configurationsProperties;

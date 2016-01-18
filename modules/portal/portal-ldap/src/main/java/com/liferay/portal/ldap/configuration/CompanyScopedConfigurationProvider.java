@@ -131,26 +131,22 @@ public abstract class CompanyScopedConfigurationProvider
 	@Override
 	public List<T> getConfigurations(long companyId, boolean useDefault) {
 		List<Dictionary<String, Object>> configurationsProperties =
-			getConfigurationsProperties(companyId);
+			getConfigurationsProperties(companyId, useDefault);
+
+		if (ListUtil.isEmpty(configurationsProperties)) {
+			return Collections.emptyList();
+		}
 
 		List<T> configurables = new ArrayList<>(
 			configurationsProperties.size());
 
-		if (ListUtil.isEmpty(configurationsProperties)) {
+		for (Dictionary<String, Object> configurationProperties :
+				configurationsProperties) {
+
 			T configurable = Configurable.createConfigurable(
-				getMetatype(), new HashMapDictionary<>());
+				getMetatype(), configurationProperties);
 
 			configurables.add(configurable);
-		}
-		else {
-			for (Dictionary<String, Object> configurationProperties :
-					configurationsProperties) {
-
-				T configurable = Configurable.createConfigurable(
-					getMetatype(), configurationProperties);
-
-				configurables.add(configurable);
-			}
 		}
 
 		return configurables;
@@ -173,16 +169,19 @@ public abstract class CompanyScopedConfigurationProvider
 			configuration = _configurations.get(CompanyConstants.SYSTEM);
 		}
 
-		if (configuration == null) {
-			return Collections.emptyList();
-		}
-
 		List<Dictionary<String, Object>> configurationsProperties =
 			new ArrayList<>();
 
-		Dictionary<String, Object> properties = configuration.getProperties();
+		if ((configuration == null) && useDefault) {
+			configurationsProperties.add(
+				new HashMapDictionary<String, Object>());
+		}
+		else if (configuration != null) {
+			Dictionary<String, Object> properties =
+				configuration.getProperties();
 
-		configurationsProperties.add(properties);
+			configurationsProperties.add(properties);
+		}
 
 		return configurationsProperties;
 	}
