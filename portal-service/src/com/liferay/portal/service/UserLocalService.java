@@ -2315,9 +2315,9 @@ public interface UserLocalService extends BaseLocalService,
 	password the next time they log in
 	* @return the user
 	*/
-	public com.liferay.portal.model.User updatePassword(long userId,
-		java.lang.String password1, java.lang.String password2,
-		boolean passwordReset) throws PortalException;
+	public void updatePassword(long userId, java.lang.String password1,
+		java.lang.String password2, boolean passwordReset)
+		throws PortalException;
 
 	/**
 	* Updates the user's password, optionally with tracking and validation of
@@ -2332,9 +2332,9 @@ public interface UserLocalService extends BaseLocalService,
 	tracked, or validated. Primarily used for password imports.
 	* @return the user
 	*/
-	public com.liferay.portal.model.User updatePassword(long userId,
-		java.lang.String password1, java.lang.String password2,
-		boolean passwordReset, boolean silentUpdate) throws PortalException;
+	public void updatePassword(long userId, java.lang.String password1,
+		java.lang.String password2, boolean passwordReset, boolean silentUpdate)
+		throws PortalException;
 
 	/**
 	* Updates the user's password with manually input information. This method
@@ -2348,10 +2348,9 @@ public interface UserLocalService extends BaseLocalService,
 	* @param passwordModifiedDate the new password modified date
 	* @return the user
 	*/
-	public com.liferay.portal.model.User updatePasswordManually(long userId,
-		java.lang.String password, boolean passwordEncrypted,
-		boolean passwordReset, java.util.Date passwordModifiedDate)
-		throws PortalException;
+	public void updatePasswordManually(long userId, java.lang.String password,
+		boolean passwordEncrypted, boolean passwordReset,
+		java.util.Date passwordModifiedDate) throws PortalException;
 
 	/**
 	* Updates whether the user should be asked to reset their password the next
@@ -2362,8 +2361,8 @@ public interface UserLocalService extends BaseLocalService,
 	password the next time they login
 	* @return the user
 	*/
-	public com.liferay.portal.model.User updatePasswordReset(long userId,
-		boolean passwordReset) throws PortalException;
+	public void updatePasswordReset(long userId, boolean passwordReset)
+		throws PortalException;
 
 	/**
 	* Updates the user's portrait image.
