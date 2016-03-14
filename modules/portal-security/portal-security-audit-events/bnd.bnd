@@ -1,0 +1,8 @@
+Bundle-Name: Liferay Portal Security Audit Events
+Bundle-SymbolicName: com.liferay.portal.security.audit.events
+Bundle-Version: 1.0.0
+Export-Package:\
+
+Liferay-Releng-Module-Group-Description:
+Liferay-Releng-Module-Group-Title: Security Frameworks
+-include: ../../../marketplace/platform/bnd.bnd

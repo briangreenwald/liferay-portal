@@ -1,0 +1,1 @@
+create index IX_72CD2F63 on AuditEvent (companyId);

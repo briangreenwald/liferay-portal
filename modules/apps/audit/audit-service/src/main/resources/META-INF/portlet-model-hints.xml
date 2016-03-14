@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+
+<model-hints>
+	<model name="com.liferay.audit.model.AuditEvent">
+		<field name="auditEventId" type="long" />
+		<field name="companyId" type="long" />
+		<field name="userId" type="long" />
+		<field name="userName" type="String" />
+		<field name="createDate" type="Date" />
+		<field name="eventType" type="String" />
+		<field name="className" type="String" />
+		<field name="classPK" type="String" />
+		<field name="message" type="String" />
+		<field name="clientHost" type="String" />
+		<field name="clientIP" type="String" />
+		<field name="serverName" type="String" />
+		<field name="serverPort" type="int" />
+		<field name="sessionID" type="String" />
+		<field name="additionalInfo" type="String" />
+	</model>
+</model-hints>
