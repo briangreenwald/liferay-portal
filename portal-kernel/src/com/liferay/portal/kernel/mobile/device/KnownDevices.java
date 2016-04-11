@@ -27,6 +27,7 @@ public interface KnownDevices {
 
 	public Set<VersionableName> getBrowsers();
 
+	@Deprecated
 	public Map<Capability, Set<String>> getDeviceIds();
 
 	public Set<VersionableName> getOperatingSystems();
