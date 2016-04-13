@@ -28,6 +28,7 @@ public interface DeviceRecognitionProvider {
 
 	public void reload() throws Exception;
 
+	@Deprecated
 	public void setDeviceCapabilityFilter(
 		DeviceCapabilityFilter deviceCapabilityFilter);
 
