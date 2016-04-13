@@ -30,8 +30,10 @@ public interface Device extends Serializable {
 
 	public String getBrowserVersion();
 
+	@Deprecated
 	public Map<String, Capability> getCapabilities();
 
+	@Deprecated
 	public String getCapability(String name);
 
 	public String getModel();
