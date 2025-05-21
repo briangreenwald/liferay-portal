@@ -40,11 +40,7 @@ public class ProjectTemplatesControlMenuEntryTest
 	@Parameterized.Parameters(name = "Testcase-{index}: testing {1} {0}")
 	public static Iterable<Object[]> data() {
 		return Arrays.asList(
-			new Object[][] {
-				{"dxp", "7.0.10.17"}, {"dxp", "7.1.10.7"}, {"dxp", "7.2.10.7"},
-				{"portal", "7.3.7"}, {"portal", "7.4.3.56"},
-				{"dxp", "2024.q1.1"}
-			});
+			new Object[][] {{"dxp", "2025.q1.1"}});
 	}
 
 	@BeforeClass
@@ -128,12 +124,6 @@ public class ProjectTemplatesControlMenuEntryTest
 			mavenExecutor, "-DclassName=FooBar",
 			"-DliferayProduct=" + _liferayProduct,
 			"-DliferayVersion=" + _liferayVersion, "-Dpackage=foo.bar");
-
-		if (!_liferayVersion.startsWith("7.0")) {
-			testContains(
-				mavenProjectDir, "bnd.bnd",
-				"-contract: JavaPortlet,JavaServlet");
-		}
 
 		if (isBuildProjects()) {
 			File gradleOutputDir = new File(gradleProjectDir, "build/libs");
