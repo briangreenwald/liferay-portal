@@ -254,14 +254,7 @@ resource "kubernetes_manifest" "infrastructure_applicationset" {
 						namespace="liferay-{{path.basename}}"
 						server="https://kubernetes.default.svc"
 					}
-					ignoreDifferences=[
-						{
-							group=""
-							jsonPointers=["/data"]
-							kind="Secret"
-							name="managed-service-details"
-						},
-					]
+					ignoreDifferences=[]
 					syncPolicy={
 						automated={
 							prune=true
