@@ -2,8 +2,15 @@ variable "argocd_namespace" {
 	default="argocd"
 	type=string
 }
-variable "cluster_name" {
+variable "crossplane_namespace" {
+	default="crossplane-system"
 	type=string
+}
+variable "deployment_name" {
+	validation {
+		condition=can(regex("^[a-z0-9-]*$", var.deployment_name))
+		error_message="The deployment_name must contain only lowercase letters, numbers, and hyphens."
+	}
 }
 variable "external_secrets_namespace" {
 	default="external-secrets"
@@ -32,7 +39,8 @@ variable "git_repo_paths" {
 	type=object(
 		{
 			liferay_application_base_path=optional(string, "applications/liferay/base")
-			liferay_application_environments_pattern=optional(string, "applications/liferay/environments/**/values.yaml")
+			liferay_application_environments_pattern=optional(string, "applications/liferay/environments/**/liferay.yaml")
+			liferay_infrastructure_environments_pattern=optional(string, "applications/liferay/environments/**/infrastructure.yaml")
 		})
 }
 variable "git_repo_url" {
@@ -53,6 +61,9 @@ variable "liferay_helm_chart_name" {
 	}
 }
 variable "liferay_helm_chart_version" {
+	type=string
+}
+variable "liferay_infrastructure_helm_chart_version" {
 	type=string
 }
 variable "region" {

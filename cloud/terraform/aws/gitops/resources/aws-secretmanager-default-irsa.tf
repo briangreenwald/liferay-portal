@@ -1,6 +1,6 @@
 resource "aws_iam_policy" "argocd_git_repo_auth_policy" {
 	count=local.secret_store_provider_default_enabled ? 1 : 0
-	name="${var.cluster_name}-argocd-git-repo-auth-policy"
+	name="${local.cluster_name}-argocd-git-repo-auth-policy"
 	policy=jsonencode(
 		{
 			Statement=[
@@ -37,7 +37,7 @@ resource "aws_iam_role" "argocd_git_repo_auth_role" {
 			Version="2012-10-17"
 		})
 	count=local.secret_store_provider_default_enabled ? 1 : 0
-	name="${var.cluster_name}-argocd-git-repo-auth"
+	name="${local.cluster_name}-argocd-git-repo-auth"
 }
 resource "aws_iam_role_policy_attachment" "argocd_git_repo_auth_policy_attachment" {
 	count=local.secret_store_provider_default_enabled ? 1 : 0

@@ -1,0 +1,339 @@
+resource "aws_iam_policy" "provider_aws_ec2_policy" {
+	name="${local.cluster_name}-provider-aws-ec2"
+	policy=jsonencode({
+		Statement=[
+			{
+				Effect="Allow"
+				Action=[
+					"ec2:AuthorizeSecurityGroupIngress",
+					"ec2:CreateNetworkInterface",
+					"ec2:CreateSecurityGroup",
+					"ec2:CreateTags",
+					"ec2:DeleteNetworkInterface",
+					"ec2:DeleteSecurityGroup",
+					"ec2:DescribeNetworkInterfaces",
+					"ec2:DescribeSecurityGroupRules",
+					"ec2:DescribeSecurityGroups",
+					"ec2:DescribeSubnets",
+					"ec2:DescribeVpcs",
+					"ec2:ModifyNetworkInterfaceAttribute",
+					"ec2:ModifySecurityGroupRules",
+					"ec2:RevokeSecurityGroupIngress",
+				]
+				Resource="*"
+			},
+		]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_policy" "provider_aws_iam_policy" {
+	name="${local.cluster_name}-provider-aws-iam"
+	policy=jsonencode({
+		Statement=[
+			{
+				Action=[
+					"iam:AttachRolePolicy",
+					"iam:CreatePolicy",
+					"iam:DeletePolicy",
+					"iam:DetachRolePolicy",
+					"iam:GetPolicy",
+					"iam:GetPolicyVersion",
+					"iam:ListAttachedRolePolicies",
+					"iam:ListPolicyVersions",
+					"iam:TagPolicy",
+				]
+				Effect="Allow"
+				Resource="*"
+			},
+		]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_policy" "provider_aws_opensearch_policy" {
+	name="${local.cluster_name}-provider-aws-opensearch"
+	policy=jsonencode({
+		Statement=[
+			{
+				Effect="Allow"
+				Action=[
+					"es:AddTags",
+					"es:CreateDomain",
+					"es:DeleteDomain",
+					"es:DescribeDomain",
+					"es:DescribeDomainConfig",
+					"es:DescribeDomainHealth",
+					"es:DescribeDomainNodes",
+					"es:ESHttpGet",
+					"es:ESHttpPut",
+					"es:ListDomainNames",
+					"es:ListTags",
+					"es:RemoveTags",
+					"es:UpdateDomainConfig",
+				]
+				Resource="*"
+			},
+		]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_policy" "provider_aws_rds_policy" {
+	name="${local.cluster_name}-provider-aws-rds"
+	policy=jsonencode({
+		Statement=[
+			{
+				Effect="Allow"
+				Action=[
+					"rds:CreateDBInstance",
+					"rds:DeleteDBInstance",
+					"rds:ModifyDBInstance",
+					"rds:DescribeDBInstances",
+					"rds:ListTagsForResource",
+					"rds:AddTagsToResource",
+					"rds:CreateDBSubnetGroup",
+					"rds:DeleteDBSubnetGroup",
+					"rds:DescribeDBSubnetGroups",
+					"rds:DescribeDBParameters",
+					"rds:DescribeEngineDefaultParameters"
+				]
+				Resource="*"
+			},
+			{
+				Effect="Allow"
+				Action=[
+					"ec2:CreateSecurityGroup",
+					"ec2:DescribeSecurityGroups",
+					"ec2:AuthorizeSecurityGroupIngress",
+					"ec2:CreateTags",
+				]
+				Resource="*"
+			},
+		]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_policy" "provider_aws_s3_policy" {
+	name="${local.cluster_name}-provider-aws-s3"
+	policy=jsonencode({
+		Statement=[
+			{
+				"Effect": "Allow"
+				"Action": [
+					"s3:AbortMultipartUpload",
+					"s3:CreateBucket",
+					"s3:DeleteBucket",
+					"s3:GetAccelerateConfiguration",
+					"s3:GetBucketAcl",
+					"s3:GetBucketCORS",
+					"s3:GetBucketLocation",
+					"s3:GetBucketLogging",
+					"s3:GetBucketObjectLockConfiguration",
+					"s3:GetBucketPolicy",
+					"s3:GetBucketPublicAccessBlock",
+					"s3:GetBucketRequestPayment",
+					"s3:GetBucketTagging",
+					"s3:GetBucketVersioning",
+					"s3:GetBucketWebsite",
+					"s3:GetEncryptionConfiguration",
+					"s3:GetLifecycleConfiguration",
+					"s3:GetReplicationConfiguration",
+					"s3:ListBucket",
+					"s3:ListBucketMultipartUploads",
+					"s3:PutBucketAcl",
+					"s3:PutBucketCORS",
+					"s3:PutBucketPolicy",
+					"s3:PutBucketPublicAccessBlock",
+					"s3:PutBucketTagging",
+					"s3:PutBucketVersioning",
+					"s3:PutBucketWebsite",
+					"s3:PutEncryptionConfiguration",
+				]
+				"Resource": ["arn:aws:s3:::*"]
+			},
+			{
+				"Effect": "Allow",
+				"Action": [
+					"s3:PutObject",
+					"s3:GetObject",
+					"s3:DeleteObject",
+				],
+				"Resource": ["arn:aws:s3:::*/*"]
+			},
+		]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_role" "provider_aws_ec2_role" {
+	name="${local.cluster_name}-provider-aws-ec2-role"
+
+	assume_role_policy=jsonencode({
+		Statement=[{
+			Effect="Allow"
+			Principal={
+				Federated="arn:aws:iam::${local.account_id}:oidc-provider/${local.oidc_provider}"
+			}
+			Action="sts:AssumeRoleWithWebIdentity"
+			Condition={
+				StringLike={
+					"${local.oidc_provider}:sub"="system:serviceaccount:${var.crossplane_namespace}:provider-aws-ec2*"
+				}
+				StringEquals={
+					"${local.oidc_provider}:aud"="sts.amazonaws.com"
+				}
+			}
+		}]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_role" "provider_aws_iam_role" {
+	name="${local.cluster_name}-provider-aws-iam-role"
+
+	assume_role_policy=jsonencode({
+		Statement=[
+			{
+				Action="sts:AssumeRoleWithWebIdentity"
+				Condition={
+					StringLike={
+						"${local.oidc_provider}:sub"="system:serviceaccount:${var.crossplane_namespace}:provider-aws-iam*"
+					}
+					StringEquals={
+						"${local.oidc_provider}:aud"="sts.amazonaws.com"
+					}
+				}
+				Effect="Allow"
+				Principal={
+					Federated="arn:aws:iam::${local.account_id}:oidc-provider/${local.oidc_provider}"
+				}
+			},
+		]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_role" "provider_aws_opensearch_role" {
+	name="${local.cluster_name}-provider-aws-opensearch-role"
+
+	assume_role_policy=jsonencode({
+		Statement=[{
+			Effect="Allow"
+			Principal={
+				Federated="arn:aws:iam::${local.account_id}:oidc-provider/${local.oidc_provider}"
+			}
+			Action="sts:AssumeRoleWithWebIdentity"
+			Condition={
+				StringLike={
+					"${local.oidc_provider}:sub"="system:serviceaccount:${var.crossplane_namespace}:provider-aws-opensearch*"
+				}
+				StringEquals={
+					"${local.oidc_provider}:aud"="sts.amazonaws.com"
+				}
+			}
+		}]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_role" "provider_aws_rds_role" {
+	name="${local.cluster_name}-provider-aws-rds-role"
+
+	assume_role_policy=jsonencode({
+		Statement=[{
+			Effect="Allow"
+			Principal={
+				Federated="arn:aws:iam::${local.account_id}:oidc-provider/${local.oidc_provider}"
+			}
+			Action="sts:AssumeRoleWithWebIdentity"
+			Condition={
+				StringLike={
+					"${local.oidc_provider}:sub"="system:serviceaccount:${var.crossplane_namespace}:provider-aws-rds*"
+				}
+				StringEquals={
+					"${local.oidc_provider}:aud"="sts.amazonaws.com"
+				}
+			}
+		}]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_role" "provider_aws_s3_role" {
+	name="${local.cluster_name}-provider-aws-s3-role"
+
+	assume_role_policy=jsonencode({
+		Statement=[{
+			Effect="Allow"
+			Principal={
+				Federated="arn:aws:iam::${local.account_id}:oidc-provider/${local.oidc_provider}"
+			}
+			Action="sts:AssumeRoleWithWebIdentity"
+			Condition={
+				StringLike={
+					"${local.oidc_provider}:sub"="system:serviceaccount:${var.crossplane_namespace}:provider-aws-s3*"
+				}
+				StringEquals={
+					"${local.oidc_provider}:aud"="sts.amazonaws.com"
+				}
+			}
+		}]
+		Version="2012-10-17"
+	})
+}
+resource "aws_iam_role_policy_attachment" "provider_aws_ec2_attachment" {
+	policy_arn=aws_iam_policy.provider_aws_ec2_policy.arn
+	role=aws_iam_role.provider_aws_ec2_role.name
+}
+resource "aws_iam_role_policy_attachment" "provider_aws_iam_attachment" {
+	policy_arn=aws_iam_policy.provider_aws_iam_policy.arn
+	role=aws_iam_role.provider_aws_iam_role.name
+}
+resource "aws_iam_role_policy_attachment" "provider_aws_opensearch_attachment" {
+	role=aws_iam_role.provider_aws_opensearch_role.name
+	policy_arn=aws_iam_policy.provider_aws_opensearch_policy.arn
+}
+resource "aws_iam_role_policy_attachment" "provider_aws_rds_attachment" {
+	role=aws_iam_role.provider_aws_rds_role.name
+	policy_arn=aws_iam_policy.provider_aws_rds_policy.arn
+}
+resource "aws_iam_role_policy_attachment" "provider_aws_s3_attachment" {
+	role=aws_iam_role.provider_aws_s3_role.name
+	policy_arn=aws_iam_policy.provider_aws_s3_policy.arn
+}
+resource "aws_iam_service_linked_role" "opensearch_linked_role" {
+	aws_service_name="opensearchservice.amazonaws.com"
+	count=local.opensearch_servicelinkedrole_exists ? 0 : 1
+}
+resource "kubernetes_manifest" "function_auto_ready" {
+	manifest={
+		apiVersion="pkg.crossplane.io/v1beta1"
+		kind="Function"
+		metadata={
+			name="function-auto-ready"
+		}
+		spec={
+			package="xpkg.upbound.io/upbound/function-auto-ready:v0.6.0"
+		}
+	}
+	provider=kubernetes
+}
+resource "kubernetes_manifest" "function_go_templating" {
+	manifest={
+		apiVersion="pkg.crossplane.io/v1beta1"
+		kind="Function"
+		metadata={
+			name="function-go-templating"
+		}
+		spec={
+			package="xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.11.3"
+		}
+	}
+	provider=kubernetes
+}
+resource "kubernetes_manifest" "function_tag_manager" {
+	manifest={
+		apiVersion="pkg.crossplane.io/v1beta1"
+		kind="Function"
+		metadata={
+			name="function-tag-manager"
+		}
+		spec={
+			package="xpkg.upbound.io/crossplane-contrib/function-tag-manager:v0.6.0"
+		}
+	}
+	provider=kubernetes
+}

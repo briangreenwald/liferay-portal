@@ -1,0 +1,5 @@
+deployment_name="jared-test-7146"
+git_repo_url="https://github.com/jaredgorski/cloud-native-gitops-boilerplate.git"
+liferay_helm_chart_name="liferay-aws"
+liferay_helm_chart_version="0.1.4"
+liferay_infrastructure_helm_chart_version="0.0.1"
