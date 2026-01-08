@@ -11,6 +11,8 @@ resource "aws_iam_policy" "provider_aws_ec2_policy" {
 					"ec2:CreateTags",
 					"ec2:DeleteNetworkInterface",
 					"ec2:DeleteSecurityGroup",
+					"ec2:DescribeAvailabilityZones",
+					"ec2:DescribeVpcs",
 					"ec2:DescribeNetworkInterfaces",
 					"ec2:DescribeSecurityGroupRules",
 					"ec2:DescribeSecurityGroups",
@@ -296,7 +298,7 @@ resource "aws_iam_role_policy_attachment" "provider_aws_s3_attachment" {
 }
 resource "aws_iam_service_linked_role" "opensearch_linked_role" {
 	aws_service_name="opensearchservice.amazonaws.com"
-	count=local.opensearch_servicelinkedrole_exists ? 0 : 1
+	count=local.should_create_opensearch_linked_role ? 1 : 0
 }
 resource "kubernetes_manifest" "function_auto_ready" {
 	manifest={
