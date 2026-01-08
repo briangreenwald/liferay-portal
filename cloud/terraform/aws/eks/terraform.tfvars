@@ -1,2 +1,2 @@
 demo_mode=true
-deployment_name="jared-test-7147"
+deployment_name="greg-test-20260108"
