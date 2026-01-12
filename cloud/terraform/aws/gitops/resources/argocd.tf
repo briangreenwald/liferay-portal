@@ -11,6 +11,9 @@ resource "kubernetes_manifest" "infrastructure_provider_application" {
 		apiVersion="argoproj.io/v1alpha1"
 		kind="Application"
 		metadata={
+			annotations={
+				"argocd.argoproj.io/compare-options"="IgnoreExtraneous"
+			}
 			labels=merge(
 				local.common_labels,
 				{

@@ -26,6 +26,7 @@ resource "helm_release" "argocd" {
 				}
 				configs={
 					cm={
+						"application.resourceTrackingMethod"="annotation"
 						"resource.exclusions"=yamlencode([
 							{
 								apiGroups=["*"]
@@ -90,8 +91,8 @@ resource "helm_release" "argocd" {
 					}
 					resources={
 						requests={
-							cpu="300m"
-							memory="512Mi"
+							cpu="500m"
+							memory="1Gi"
 						}
 						limits={
 							cpu="1000m"
