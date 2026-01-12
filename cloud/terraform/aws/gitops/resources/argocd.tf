@@ -11,7 +11,6 @@ resource "kubernetes_manifest" "infrastructure_provider_application" {
 		apiVersion="argoproj.io/v1alpha1"
 		kind="Application"
 		metadata={
-			finalizers=["resources-finalizer.argocd.argoproj.io"]
 			labels=merge(
 				local.common_labels,
 				{
@@ -99,7 +98,6 @@ resource "kubernetes_manifest" "infrastructure_applicationset" {
 		apiVersion="argoproj.io/v1alpha1"
 		kind="ApplicationSet"
 		metadata={
-			finalizers=["resources-finalizer.argocd.argoproj.io"]
 			labels=merge(
 				local.common_labels,
 				{
@@ -195,7 +193,6 @@ resource "kubernetes_manifest" "liferay_applicationset" {
 		apiVersion="argoproj.io/v1alpha1"
 		kind="ApplicationSet"
 		metadata={
-			finalizers=["resources-finalizer.argocd.argoproj.io"]
 			labels=merge(
 				local.common_labels,
 				{
