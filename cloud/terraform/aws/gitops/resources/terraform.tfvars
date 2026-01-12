@@ -1,6 +1,13 @@
 deployment_name="gregtest-20260112"
-git_repo_auth_config={
-	vault_secret_name="argocd/pat/gitops-source-of-truth2"
+liferay_git_repo_config={
+	auth={
+		vault_secret_name="argocd/pat/gitops-source-of-truth2"
+	},
+	source_paths={
+		base="liferay/projects/{{path[2]}}/base"
+		environments="liferay/projects/*/environments/*"
+		values_filename="liferay.yaml"
+	}
 }
-git_repo_url="https://github.com/gamerson/cloud-native-gitops-boilerplate.git"
+liferay_git_repo_url="https://github.com/gamerson/cloud-native-gitops-boilerplate.git"
 liferay_helm_chart_version="0.1.4"
