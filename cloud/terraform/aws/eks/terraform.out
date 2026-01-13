@@ -1,11 +1,11 @@
 arn_partition = "aws"
-cluster_name = "gregtest-20260112-eks"
-deployment_name = "gregtest-20260112"
+cluster_name = "gregtest-20260113-eks"
+deployment_name = "gregtest-20260113"
 deployment_namespace = "liferay-system"
-liferay_sa_role_arn = "arn:aws:iam::713881832303:role/gregtest-20260112-irsa"
-liferay_sa_role_name = "gregtest-20260112-irsa"
+liferay_sa_role_arn = "arn:aws:iam::713881832303:role/gregtest-20260113-irsa"
+liferay_sa_role_name = "gregtest-20260113-irsa"
 private_subnet_ids = [
-  "subnet-078c56b42d5531a0b",
-  "subnet-0ce3c735e2aeef44e",
+  "subnet-03f077cf76ad3989c",
+  "subnet-0be6f8fe204374b81",
 ]
 region = "us-west-2"

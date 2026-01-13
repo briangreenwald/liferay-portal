@@ -1,4 +1,4 @@
-deployment_name="gregtest-20260112"
+deployment_name="gregtest-20260113"
 liferay_git_repo_config={
 	auth={
 		vault_secret_name="argocd/pat/gitops-source-of-truth2"
@@ -14,5 +14,5 @@ liferay_helm_chart_version="0.1.4"
 deploy_infrastructure_provider_application=true
 deploy_infrastructure_applicationset=false
 deploy_liferay_applicationset=false
-deploy_infrastructure_appproject=false
+deploy_infrastructure_appproject=true
 deploy_liferay_appproject=false
