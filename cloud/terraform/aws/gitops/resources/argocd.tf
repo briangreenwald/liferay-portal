@@ -1,4 +1,5 @@
 resource "kubernetes_manifest" "infrastructure_provider_application" {
+	count=var.deploy_infrastructure_provider_application ? 1 : 0
 	depends_on=[
 		kubernetes_manifest.git_repo_credentials_external_secret,
 		kubernetes_manifest.infrastructure_appproject,
@@ -89,6 +90,7 @@ resource "kubernetes_manifest" "infrastructure_provider_application" {
 	}
 }
 resource "kubernetes_manifest" "infrastructure_applicationset" {
+	count=var.deploy_infrastructure_applicationset ? 1 : 0
 	depends_on=[
 		kubernetes_manifest.git_repo_credentials_external_secret,
 		kubernetes_manifest.infrastructure_appproject,
@@ -184,6 +186,7 @@ resource "kubernetes_manifest" "infrastructure_applicationset" {
 	}
 }
 resource "kubernetes_manifest" "liferay_applicationset" {
+	count=var.deploy_liferay_applicationset ? 1 : 0
 	depends_on=[
 		kubernetes_manifest.git_repo_credentials_external_secret,
 		kubernetes_manifest.liferay_appproject,
@@ -286,6 +289,7 @@ resource "kubernetes_manifest" "liferay_applicationset" {
 	}
 }
 resource "kubernetes_manifest" "infrastructure_appproject" {
+	count=var.deploy_infrastructure_appproject ? 1 : 0
 	field_manager {
 		force_conflicts=true
 		name=local.terraform_manager_name
@@ -335,6 +339,7 @@ resource "kubernetes_manifest" "infrastructure_appproject" {
 	}
 }
 resource "kubernetes_manifest" "liferay_appproject" {
+	count=var.deploy_liferay_appproject ? 1 : 0
 	depends_on=[kubernetes_manifest.infrastructure_appproject]
 	field_manager {
 		force_conflicts=true

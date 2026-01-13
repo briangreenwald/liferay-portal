@@ -6,6 +6,26 @@ variable "crossplane_namespace" {
 	default="crossplane-system"
 	type=string
 }
+variable deploy_infrastructure_provider_application {
+	type=bool
+	default=false
+}
+variable deploy_infrastructure_applicationset {
+	type=bool
+	default=false
+}
+variable deploy_liferay_applicationset {
+	type=bool
+	default=false
+}
+variable deploy_infrastructure_appproject {
+	type=bool
+	default=false
+}
+variable deploy_liferay_appproject {
+	type=bool
+	default=false
+}
 variable "deployment_name" {
 	validation {
 		condition=can(regex("^[a-z0-9-]*$", var.deployment_name))

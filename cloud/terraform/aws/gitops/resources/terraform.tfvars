@@ -11,3 +11,8 @@ liferay_git_repo_config={
 }
 liferay_git_repo_url="https://github.com/gamerson/cloud-native-gitops-boilerplate.git"
 liferay_helm_chart_version="0.1.4"
+deploy_infrastructure_provider_application=true
+deploy_infrastructure_applicationset=false
+deploy_liferay_applicationset=false
+deploy_infrastructure_appproject=false
+deploy_liferay_appproject=false
