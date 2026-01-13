@@ -13,7 +13,7 @@ resource "kubernetes_manifest" "infrastructure_provider_application" {
 		kind="Application"
 		metadata={
 			annotations={
-				"argocd.argoproj.io/compare-options"="IgnoreExtraneous"
+				"argocd.argoproj.io/compare-options"="IgnoreExtraneous,ServerSideDiff=false"
 			}
 			labels=merge(
 				local.common_labels,
@@ -81,7 +81,6 @@ resource "kubernetes_manifest" "infrastructure_provider_application" {
 				syncOptions=[
 					"CreateNamespace=true",
 					"ServerSideApply=true",
-					"ServerSideDiff=true",
 					"SkipDryRunOnMissingResource=true",
 					"Validate=false",
 				]
