@@ -15,6 +15,7 @@ resource "helm_release" "aws_lb_controller" {
 	depends_on=[
 		module.eks,
 	]
+	disable_openapi_validation=true
 	name="aws-load-balancer-controller"
 	namespace="kube-system"
 	repository="https://aws.github.io/eks-charts"
