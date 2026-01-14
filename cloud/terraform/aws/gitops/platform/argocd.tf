@@ -143,6 +143,7 @@ resource "random_password" "argocd_server_secretkey" {
 	special=false
 }
 resource "kubernetes_ingress_v1" "argocd_server" {
+	count=var.demo_mode ? 1 : 0
 	depends_on=[
 		helm_release.argocd,
 	]
