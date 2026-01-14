@@ -15,4 +15,4 @@ deploy_infrastructure_provider_application=true
 deploy_infrastructure_applicationset=true
 deploy_liferay_applicationset=true
 deploy_infrastructure_appproject=true
-deploy_liferay_appproject=false
+deploy_liferay_appproject=true
