@@ -102,6 +102,7 @@ resource "helm_release" "argocd" {
 					service={
 						type="ClusterIP"
 					}
+					extraArgs=["--insecure"]
 				}
 			}),
 	]
