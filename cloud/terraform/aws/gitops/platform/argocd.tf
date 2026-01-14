@@ -142,3 +142,33 @@ resource "random_password" "argocd_server_secretkey" {
 	length=32
 	special=false
 }
+resource "kubernetes_ingress_v1" "argocd_server" {
+	depends_on=[
+		helm_release.argocd,
+	]
+	metadata {
+		name="argocd-server"
+		namespace=var.argocd_namespace
+		annotations={
+			"kubernetes.io/ingress.class"="nginx"
+		}
+	}
+	spec {
+		rule {
+			http {
+				path {
+					path="/"
+					path_type="Prefix"
+					backend {
+						service {
+							name="argocd-server"
+							port {
+								number=80
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
