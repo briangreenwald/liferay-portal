@@ -1,3 +1,6 @@
+global:
+    gcp:
+        projectId: ""
 liferay-default:
     annotations:
         gke-gcsfuse/volumes: "true"
@@ -127,6 +130,12 @@ liferay-default:
                     defaultMode: 0755
                     name: liferay-init-scripts
                 name: liferay-init-scripts
+    keda:
+        prometheusServerAddress: 'https://monitoring.googleapis.com/v1/projects/{{ .Values.global.gcp.projectId }}/location/global/prometheus/'
+        triggerAuthentication:
+            spec:
+                podIdentity:
+                    provider: gcp
     network:
         enabled: true
         hostnames: []
