@@ -368,7 +368,7 @@ function _print_help {
 
 function _review_in_sandbox {
 	timeout \
-		--kill-after=10s 15m \
+		--kill-after=10s 20m \
 		\
 		bwrap \
 			--as-pid-1 \
@@ -485,6 +485,8 @@ Output ONLY valid JSON: {"chance": <0-100>, "violations": ["brief description of
 	then
 		echo "${model_json}" > "/tmp/pr-${pr_number}-${model}.json"
 	else
+		echo "${model} failed after $(($(date +%s) - seconds))s: $(echo "${response}" | tr "\n" " " | head --bytes=300)" >&2
+
 		jq --null-input --arg error "${response}" --argjson seconds "$(($(date +%s) - seconds))" "{chance: 0, error: \$error, seconds: \$seconds, violations: []}" > "/tmp/pr-${pr_number}-${model}.json"
 	fi
 }
