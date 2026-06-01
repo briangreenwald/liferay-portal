@@ -26,7 +26,7 @@ Five principles run through everything:
 - When a class owns the plain name (a `Filter` is `filter`), give a different type that holds the same thing a type suffix: a filter string is `filterString`, and a `JSONObject` is `xyzJSONObject` while its serialized string is `xyzJSON`. [104]
 - Name a method for what it actually does, not a convenient paraphrase: a helper that creates an account entry user relation is `_associateUser`, not the inaccurate `_addUserToAccount`. [105]
 - Across a parallel set, mirror each type name one to one: a method throwing `PrincipalException` is `principalException`, not `principalDenied`, so no stray word lands on some names but not the type. [106]
-- Name a value or test to match the method it comes from: the result of `getStatus()` is `status` (not `statusCode`), and a test of it is `testStatusNotFound`. [107]
+- Name a value or test to match the method it comes from: the result of `getStatus()` is `status` (not `statusCode`), and a test of it is `testStatusNotFound`. When the value flows into a destination that uses a different conceptual name (a JSON key, a parameter), match the destination instead — `String startDateString = jobStatus.getStartTime(); patchJSONObject.put("startDate", startDateString);` follows the JSON key with the `String` suffix per rule 104. [107]
 - Taste: use the precise domain verb (`delete`, not `remove`, for a database deletion). Drop a qualifier the context already implies, but add one when it is needed to tell two instances apart. Encode the real type in the suffix where it adds clarity (`...Page`, `...JSON`); a collection takes the plural, and an `...Array` or `...List` suffix is only for telling an array and a list of the same content apart within a class. The aim is a name that tells the reader exactly what the value is, with nothing redundant and nothing missing.
 
 ## Ordering and declaration
@@ -43,7 +43,7 @@ Five principles run through everything:
 ## Control flow and form
 
 - No `switch` or `case`; use an `if` / `else if` / `else` chain. [401]
-- Chain method calls only on a builder; otherwise assign the result to a local and call on it. [402]
+- Chain method calls only on a builder or a fluent type (`*Builder`, `Stream`, `Optional`, `Instant`, `JSONArray`, `JSONObject`, and the rest of `ChainingCheck`'s allow list); otherwise assign the result to a local and call on it. [402]
 - Use an enhanced `for` loop, not an explicit `Iterator` with `while (hasNext())`. [403]
 - Hoist a call whose result does not change across iterations out of the loop. [404]
 
