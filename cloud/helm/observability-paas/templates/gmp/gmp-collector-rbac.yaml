@@ -1,0 +1,41 @@
+{{- if .Values.gmp.collectorRBAC.enabled }}
+{{- $context := .Values.gmp.collectorRBAC }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ default $context.secretName $context.roleName }}
+    namespace: {{ include "observability-paas.namespace" . | quote }}
+rules:
+    -   apiGroups:
+            -   ""
+        resources:
+            -   secrets
+        {{- if not $context.secretName }}
+        {{- fail "Error: You must specify a value for 'gmp.collectorRBAC.secretName'." }}
+        {{- else }}
+        resourceNames:
+            -   {{ $context.secretName | quote }}
+        {{- end }}
+        verbs:
+            -   "get"
+            -   "list"
+            -   "watch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ default $context.secretName $context.roleName }}
+    namespace: {{ include "observability-paas.namespace" . | quote }}
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: Role
+    name: {{ default $context.secretName $context.roleName }}
+subjects:
+    -   kind: ServiceAccount
+        name: {{ default "collector" $context.serviceAccount }}
+        namespace: {{ default "gmp-system" $context.serviceAccountNamespace }}
+{{- end }}

@@ -1,0 +1,36 @@
+<style>
+	.bd-bar { padding: 16px 24px; background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; font-family: 'Inter', system-ui, sans-serif; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; width: 100%; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); }
+	.bd-env { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+	.bd-env-label { color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+	.bd-env-value { color: #111827; font-size: 14px; font-weight: 700; background: #e2e8f0; padding: 4px 10px; border-radius: 6px; }
+	.bd-title { margin-left: 24px; }
+	.bd-title-head { margin: 0; color: #111827; font-size: 20px; font-weight: 800; }
+	.bd-title-sub { margin: 4px 0 0 0; color: #4b5563; font-size: 13px; }
+	.bd-tile { background-color: #f8fafc; border: 2px solid #3274d9; border-radius: 10px; padding: 16px; text-decoration: none; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
+	.bd-tile-emoji { font-size: 24px; }
+	.bd-tile-icon { margin-bottom: 8px; height: 28px; display: flex; align-items: center; }
+	.bd-tile-sub { color: #64748b; font-size: 12px; line-height: 1.3; }
+	.bd-tile-title { color: #1e3a8a; font-weight: 800; font-size: 16px; margin-bottom: 2px; }
+</style>
+
+<div class="bd-bar">
+	<a class="bd-tile" href="/d/central-hub/central-hub">
+		<div class="bd-tile-icon">
+			<span class="bd-tile-emoji">🏠</span>
+		</div>
+
+		<div class="bd-tile-title">Central Hub</div>
+		<div class="bd-tile-sub">Platform overview.</div>
+	</a>
+
+	<div class="bd-title">
+		<h2 class="bd-title-head">Build Details</h2>
+
+		<p class="bd-title-sub">Execution timeline and step-level diagnostics.</p>
+	</div>
+
+	<div class="bd-env">
+		<span class="bd-env-label">Build ID:</span>
+		<span class="bd-env-value">$build_id</span>
+	</div>
+</div>

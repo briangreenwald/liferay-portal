@@ -1,0 +1,21 @@
+{{- if eq (index .Values "observability" "cloudProvider") "gcp" -}}
+apiVersion: v1
+data:
+    googlecloud-logging-datasource.yaml: |
+        apiVersion: 1
+        datasources:
+            -   access: proxy
+                jsonData:
+                    authenticationType: gce
+                    logBucketFilter: ".*workspace"
+                name: Google Cloud Logging
+                type: googlecloud-logging-datasource
+                uid: googlecloud-logging-datasource
+kind: ConfigMap
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+        grafana_datasource: "true"
+    name: {{ printf "%s-cloud-logging-datasource" (include "observability-paas.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+    namespace: {{ include "observability-paas.namespace" . | quote }}
+{{- end -}}

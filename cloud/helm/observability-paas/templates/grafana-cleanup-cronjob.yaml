@@ -1,0 +1,66 @@
+{{- if .Values.jobs.deleteUnprovisionedResources.enabled }}
+{{- $name := include "observability-paas.cleanup.fullname" . }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ $name | quote }}
+    namespace: {{ include "observability-paas.namespace" . | quote }}
+spec:
+    concurrencyPolicy: {{ .Values.jobs.deleteUnprovisionedResources.concurrencyPolicy | quote }}
+    jobTemplate:
+        metadata:
+            {{- with .Values.jobs.deleteUnprovisionedResources.annotations }}
+            annotations:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            labels:
+                {{- include "observability-paas.labels" . | nindent 16 }}
+        spec:
+            template:
+                metadata:
+                    {{- with .Values.jobs.deleteUnprovisionedResources.podAnnotations }}
+                    annotations:
+                        {{- toYaml . | nindent 24 }}
+                    {{- end }}
+                    labels:
+                        {{- include "observability-paas.labels" . | nindent 24 }}
+                spec:
+                    containers:
+                        -   command:
+                                -   sh
+                                -   -c
+                                -   /scripts/grafana-cleanup.sh
+                            env:
+                                -   name: GRAFANA_USER
+                                    valueFrom:
+                                        secretKeyRef:
+                                            key: admin-user
+                                            name: {{ include "observability-paas.grafana.fullname" . | quote }}
+                                -   name: GRAFANA_PASSWORD
+                                    valueFrom:
+                                        secretKeyRef:
+                                            key: admin-password
+                                            name: {{ include "observability-paas.grafana.fullname" . | quote }}
+                                -   name: GRAFANA_HOST
+                                    value: {{ printf "http://%s.%s.svc" (include "observability-paas.grafana.fullname" .) (include "observability-paas.namespace" .) | quote }}
+                                {{- with .Values.jobs.deleteUnprovisionedResources.extraEnv }}
+                                {{- toYaml . | nindent 32 }}
+                                {{- end }}
+                            image: {{ printf "%s:%s" .Values.jobs.deleteUnprovisionedResources.image.repository .Values.jobs.deleteUnprovisionedResources.image.tag | quote }}
+                            imagePullPolicy: {{ .Values.jobs.deleteUnprovisionedResources.image.pullPolicy | quote }}
+                            name: grafana-cleanup
+                            resources:
+                                {{- toYaml .Values.jobs.deleteUnprovisionedResources.resources | nindent 32 }}
+                            volumeMounts:
+                                -   mountPath: /scripts
+                                    name: scripts
+                    restartPolicy: {{ .Values.jobs.deleteUnprovisionedResources.restartPolicy | quote }}
+                    volumes:
+                        -   configMap:
+                                defaultMode: 0555
+                                name: {{ printf "%s-script" $name | quote }}
+                            name: scripts
+    schedule: {{ .Values.jobs.deleteUnprovisionedResources.schedule | quote }}
+{{- end }}

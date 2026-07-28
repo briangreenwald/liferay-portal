@@ -1,0 +1,47 @@
+{{- if .Values.gmp.customMetricsStackdriverAdapter.enabled -}}
+{{- $name := include "observability-paas.gmp.customMetricsStackdriverAdapter.name" $ -}}
+{{- $context := .Values.gmp.customMetricsStackdriverAdapter -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    labels:
+        {{- include "observability-paas.labels" $ | nindent 8 }}
+        k8s-app: {{ $name }}
+        run: {{ $name }}
+    name: {{ $name }}
+    namespace: {{ include "observability-paas.namespace" $ | quote }}
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            k8s-app: {{ $name }}
+            run: {{ $name }}
+    template:
+        metadata:
+            labels:
+                {{- include "observability-paas.labels" $ | nindent 16 }}
+                k8s-app: {{ $name }}
+                kubernetes.io/cluster-service: "true"
+                run: {{ $name }}
+        spec:
+            {{- with $context.affinity }}
+            affinity:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            containers:
+                -   command:
+                        -   /adapter
+                        -   --use-new-resource-model=true
+                        -   --fallback-for-container-metrics=true
+                    image: "{{ $context.image.repository }}:{{ $context.image.tag }}"
+                    imagePullPolicy: "{{ $context.image.pullPolicy }}"
+                    name: {{ $name }}
+                    resources:
+                        {{- toYaml $context.resources | nindent 24 }}
+            hostNetwork: true
+            serviceAccountName: {{ $name }}
+            {{- with $context.tolerations }}
+            tolerations:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+{{- end -}}

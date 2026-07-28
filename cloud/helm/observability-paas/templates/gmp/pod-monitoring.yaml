@@ -1,0 +1,21 @@
+{{- if eq (index .Values "observability" "cloudProvider") "gcp" -}}
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ printf "%s-kube-state-metrics" (include "observability-paas.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+    namespace: {{ include "observability-paas.namespace" . | quote }}
+spec:
+    endpoints:
+        -   interval: 5m
+            metricRelabeling:
+                -   action: keep
+                    regex: ^liferay-.*-.*$
+                    sourceLabels:
+                        -   exported_namespace
+            port: http
+    selector:
+        matchLabels:
+            app.kubernetes.io/name: kube-state-metrics
+{{- end -}}

@@ -1,0 +1,55 @@
+{{- if and .Values.gateway.enabled (eq .Values.gateway.provider "envoy") }}
+{{- $fullName := include "observability-paas.gateway.targetName" . -}}
+{{- $ns := include "observability-paas.namespace" . -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ printf "%s-allow-envoy" $fullName | quote }}
+    namespace: {{ $ns | quote }}
+spec:
+    ingress:
+        -   from:
+                -   podSelector:
+                        matchLabels:
+                            app.kubernetes.io/name: envoy
+    podSelector:
+        matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/name: grafana
+    policyTypes:
+        -   Ingress
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ $fullName | quote }}
+    namespace: {{ $ns | quote }}
+spec:
+    {{- with .Values.gateway.envoy.clientTrafficPolicy }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    targetRefs:
+        -   group: gateway.networking.k8s.io
+            kind: Gateway
+            name: {{ include "observability-paas.gateway.name" . }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ $fullName | quote }}
+    namespace: {{ $ns | quote }}
+spec:
+    {{- with .Values.gateway.envoy.backendTrafficPolicy }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    targetRefs:
+        -   group: gateway.networking.k8s.io
+            kind: HTTPRoute
+            name: {{ $fullName | quote }}
+{{- end }}

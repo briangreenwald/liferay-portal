@@ -1,0 +1,6 @@
+dependencies:
+- name: observability
+  repository: file://../observability
+  version: 1.0.0
+digest: sha256:c41cc9089eb48aaa9a86a79fab9d55b1704f5d32f6717726f437017d23aa8a21
+generated: "2026-07-17T12:29:47.560877-05:00"

@@ -1,0 +1,38 @@
+{{- if .Values.gateway.enabled }}
+{{- $hostname := include "observability-paas.gateway.hostname" . -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+    {{- with .Values.gateway.annotations }}
+    annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ include "observability-paas.gateway.name" . }}
+    namespace: {{ include "observability-paas.namespace" . | quote }}
+spec:
+    gatewayClassName: {{ include "observability-paas.gateway.className" . }}
+    listeners:
+        -   allowedRoutes:
+                kinds:
+                    -   group: gateway.networking.k8s.io
+                        kind: HTTPRoute
+            hostname: {{ $hostname | quote }}
+            name: http
+            port: 80
+            protocol: HTTP
+        -   allowedRoutes:
+                kinds:
+                    -   group: gateway.networking.k8s.io
+                        kind: HTTPRoute
+            hostname: {{ $hostname | quote }}
+            name: https
+            port: 443
+            protocol: HTTPS
+            tls:
+                certificateRefs:
+                    -   group: ""
+                        kind: Secret
+                        name: {{ printf "%s-tls" (include "observability-paas.gateway.targetName" .) | quote }}
+{{- end }}

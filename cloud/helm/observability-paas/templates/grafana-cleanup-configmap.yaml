@@ -1,0 +1,14 @@
+{{- if .Values.jobs.deleteUnprovisionedResources.enabled }}
+{{- $datasourceUid := index .Values "observability" "datasource" "uid" | default "managed-prometheus" -}}
+{{- $script := .Files.Get "scripts/grafana-cleanup.sh" | replace "gcp-prometheus" $datasourceUid -}}
+apiVersion: v1
+data:
+    grafana-cleanup.sh: |
+        {{- $script | nindent 8 }}
+kind: ConfigMap
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ printf "%s-script" (include "observability-paas.cleanup.fullname" .) | quote }}
+    namespace: {{ include "observability-paas.namespace" . | quote }}
+{{- end }}

@@ -1,0 +1,23 @@
+{{- if .Values.gmp.customMetricsStackdriverAdapter.enabled -}}
+{{- $name := include "observability-paas.gmp.customMetricsStackdriverAdapter.name" $ -}}
+apiVersion: v1
+kind: Service
+metadata:
+    labels:
+        {{- include "observability-paas.labels" $ | nindent 8 }}
+        k8s-app: {{ $name }}
+        kubernetes.io/cluster-service: "true"
+        kubernetes.io/name: Adapter
+        run: {{ $name }}
+    name: {{ $name }}
+    namespace: {{ include "observability-paas.namespace" $ | quote }}
+spec:
+    ports:
+        -   port: 443
+            protocol: TCP
+            targetPort: 443
+    selector:
+        k8s-app: {{ $name }}
+        run: {{ $name }}
+    type: ClusterIP
+{{- end }}

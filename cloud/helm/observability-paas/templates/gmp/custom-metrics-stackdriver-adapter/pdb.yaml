@@ -1,0 +1,26 @@
+{{- if and .Values.gmp.customMetricsStackdriverAdapter.enabled .Values.gmp.customMetricsStackdriverAdapter.podDisruptionBudget.enabled -}}
+{{- $name := include "observability-paas.gmp.customMetricsStackdriverAdapter.name" $ -}}
+{{- $pdbContext := .Values.gmp.customMetricsStackdriverAdapter.podDisruptionBudget -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+    labels:
+        {{- include "observability-paas.labels" $ | nindent 8 }}
+        k8s-app: {{ $name }}
+        run: {{ $name }}
+    name: {{ $name }}
+    namespace: {{ include "observability-paas.namespace" $ | quote }}
+spec:
+    {{- with $pdbContext.maxUnavailable }}
+    maxUnavailable: {{ . }}
+    {{- end }}
+    {{- with $pdbContext.minAvailable }}
+    minAvailable: {{ . }}
+    {{- end }}
+    selector:
+        matchLabels:
+            k8s-app: {{ $name }}
+    {{- with $pdbContext.unhealthyPodEvictionPolicy }}
+    unhealthyPodEvictionPolicy: {{ . }}
+    {{- end }}
+{{- end -}}

@@ -1,0 +1,16 @@
+apiVersion: v2
+appVersion: v1.0.0
+dependencies:
+    -   name: observability
+        repository: file://../observability
+        version: 1.0.0
+description:
+    PaaS overlay for the observability chart. Adds the Liferay-PaaS-only dashboards (builds, secrets, custom domains), Grafana Gateway exposure, Okta SSO, and the GCP HPA/collector add-ons. Today only GCP is supported; AWS PaaS support will land in a future release.
+icon: https://www-cdn.liferay.com/documents/d/guest/liferay-logo
+keywords:
+    -   grafana
+    -   liferay-paas
+    -   observability
+name: observability-paas
+type: application
+version: 1.0.0

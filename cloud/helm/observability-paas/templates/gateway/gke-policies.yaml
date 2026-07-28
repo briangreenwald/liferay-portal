@@ -1,0 +1,64 @@
+{{- if and .Values.gateway.enabled (eq .Values.gateway.provider "gke") }}
+{{- $fullName := include "observability-paas.gateway.targetName" . -}}
+{{- $ns := include "observability-paas.namespace" . -}}
+{{- $hc := .Values.gateway.gke.healthCheck -}}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ $fullName | quote }}
+    namespace: {{ $ns | quote }}
+spec:
+    default:
+        checkIntervalSec: {{ $hc.checkIntervalSec }}
+        config:
+            httpHealthCheck:
+                requestPath: {{ $hc.requestPath | quote }}
+            type: HTTP
+        healthyThreshold: {{ $hc.healthyThreshold }}
+        logConfig:
+            {{- toYaml $hc.logConfig | nindent 12 }}
+    targetRef:
+        group: ""
+        kind: Service
+        name: {{ $fullName | quote }}
+---
+apiVersion: networking.gke.io/v1
+kind: GCPGatewayPolicy
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ $fullName | quote }}
+    namespace: {{ $ns | quote }}
+spec:
+    default:
+        sslPolicy: {{ .Values.gateway.gke.gatewayPolicy.sslPolicy }}
+    targetRef:
+        group: gateway.networking.k8s.io
+        kind: Gateway
+        name: {{ include "observability-paas.gateway.name" . }}
+---
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+    labels:
+        {{- include "observability-paas.labels" . | nindent 8 }}
+    name: {{ $fullName | quote }}
+    namespace: {{ $ns | quote }}
+spec:
+    default:
+        {{- with .Values.gateway.gke.backendPolicy.logging }}
+        logging:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- with .Values.gateway.gke.backendPolicy.sessionAffinity }}
+        sessionAffinity:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        timeoutSec: {{ .Values.gateway.gke.backendPolicy.timeoutSec }}
+    targetRef:
+        group: ""
+        kind: Service
+        name: {{ $fullName | quote }}
+{{- end }}
