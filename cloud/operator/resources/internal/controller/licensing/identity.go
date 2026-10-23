@@ -24,7 +24,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) ensureIdentity
 	context context.Context,
 	liferayEnvironment *licensingv1alpha1.LiferayEnvironment,
 ) (*rsa.PrivateKey, error) {
-	identitySecretKey := identitySecretKey(liferayEnvironment)
+	identitySecretKey := getIdentitySecretKey(liferayEnvironment)
 
 	secret := &corev1.Secret{}
 
@@ -50,7 +50,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) ensureIdentity
 		return nil, error
 	}
 
-	publicPEM, error := publicKeyBase64(privateKey)
+	publicKey, error := publicKeyBase64(privateKey)
 
 	if error != nil {
 		return nil, error
@@ -64,7 +64,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) ensureIdentity
 					Type:  "PRIVATE KEY",
 				},
 			),
-			"public.pem": []byte(publicPEM),
+			"public.pem": []byte(publicKey),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:    map[string]string{"controller-watched": "yes"},
@@ -86,7 +86,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) ensureIdentity
 	return privateKey, nil
 }
 
-func identitySecretKey(
+func getIdentitySecretKey(
 	liferayEnvironment *licensingv1alpha1.LiferayEnvironment,
 ) types.NamespacedName {
 	return types.NamespacedName{
@@ -99,7 +99,7 @@ func parsePrivateKey(privatePEM []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(privatePEM)
 
 	if block == nil {
-		return nil, fmt.Errorf("identity secret: no PEM block in private.pem")
+		return nil, fmt.Errorf("identity secret: \"private.pem\" has no PEM block")
 	}
 
 	parsed, error := x509.ParsePKCS8PrivateKey(block.Bytes)
@@ -111,7 +111,7 @@ func parsePrivateKey(privatePEM []byte) (*rsa.PrivateKey, error) {
 	parsedPrivateKey, ok := parsed.(*rsa.PrivateKey)
 
 	if !ok {
-		return nil, fmt.Errorf("identity secret: not an RSA private key")
+		return nil, fmt.Errorf("identity secret: private key is not an RSA private key")
 	}
 
 	return parsedPrivateKey, nil

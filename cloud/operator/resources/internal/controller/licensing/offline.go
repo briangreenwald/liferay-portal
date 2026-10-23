@@ -172,7 +172,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) offlineActivat
 	liferayEnvironment *licensingv1alpha1.LiferayEnvironment,
 ) string {
 	return filepath.Join(
-		liferayEnvironmentReconciler.environmentDir(liferayEnvironment.Namespace),
+		liferayEnvironmentReconciler.getEnvironmentDir(liferayEnvironment.Namespace),
 		liferayEnvironment.Spec.OfflineActivationBundle,
 	)
 }
@@ -185,7 +185,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) persistOffline
 	secret := &corev1.Secret{}
 
 	if error := liferayEnvironmentReconciler.Get(
-		context, identitySecretKey(liferayEnvironment), secret,
+		context, getIdentitySecretKey(liferayEnvironment), secret,
 	); error != nil {
 		return error
 	}
