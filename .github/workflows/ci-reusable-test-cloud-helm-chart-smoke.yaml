@@ -313,7 +313,7 @@ jobs:
 
                         if [[ ${labeled_namespaces} != namespace/liferay ]]
                         then
-                            echo "The licensed environment label is on \"${labeled_namespaces}\" instead of only namespace/liferay." >&2
+                            echo "The licensed environment label is on \"${labeled_namespaces}\" instead of only \"namespace/liferay\"." >&2
 
                             exit 1
                         fi

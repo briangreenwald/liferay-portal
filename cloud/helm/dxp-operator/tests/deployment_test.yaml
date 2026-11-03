@@ -240,7 +240,7 @@ tests:
             -   equal:
                     path: spec.template.spec.containers[0].env[?(@.name=="WATCH_NAMESPACES")].value
                     value: able,baker
-        it: Passes the watched namespaces as a comma-separated environment variable
+        it: Passes the watched namespaces as a comma separated environment variable
         set:
             watchNamespaces:
                 -   able
