@@ -480,6 +480,7 @@ func namespaceLabeledCondition(labeled bool, namespaceName string) metav1.Condit
 		Type:   conditionNamespaceLabeled,
 	}
 }
+
 func proceed() stepOutcome {
 	return stepOutcome{}
 }

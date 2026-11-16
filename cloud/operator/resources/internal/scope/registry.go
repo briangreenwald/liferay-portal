@@ -29,7 +29,7 @@ const (
 	notBoundRecheckInterval = 30 * time.Second
 )
 
-func (registry *Registry) BoundNamespaces() []string {
+func (registry *Registry) ActiveNamespaces() []string {
 	registry.mutex.RLock()
 
 	defer registry.mutex.RUnlock()

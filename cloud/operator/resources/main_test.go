@@ -63,14 +63,14 @@ func TestNewManagerOptionsScopesTheCache(t *testing.T) {
 				}
 			}
 
-			wantByObjectCount := 2
+			wantByObjectsCount := 2
 
 			if testCase.namespaces != nil {
-				wantByObjectCount = 4
+				wantByObjectsCount = 4
 			}
 
-			if len(managerOptions.Cache.ByObject) != wantByObjectCount {
-				t.Errorf("ByObject has %d entries, want %d", len(managerOptions.Cache.ByObject), wantByObjectCount)
+			if len(managerOptions.Cache.ByObject) != wantByObjectsCount {
+				t.Errorf("ByObject has %d entries, want %d", len(managerOptions.Cache.ByObject), wantByObjectsCount)
 			}
 
 			if (managerOptions.Client.Cache == nil) || !isDisabledFor(managerOptions.Client.Cache.DisableFor) {

@@ -117,8 +117,8 @@ func TestRegistryTracksTheNamespacesTheOperatorIsBoundIn(t *testing.T) {
 
 	awaitState(registry, "baker", StateNotBound, t)
 
-	if namespaces := registry.BoundNamespaces(); !slices.Equal(namespaces, []string{"able"}) {
-		t.Errorf("BoundNamespaces() = %v, want [able]", namespaces)
+	if namespaces := registry.ActiveNamespaces(); !slices.Equal(namespaces, []string{"able"}) {
+		t.Errorf("ActiveNamespaces() = %v, want [able]", namespaces)
 	}
 
 	awaitChange(registry, t)
@@ -133,8 +133,8 @@ func TestRegistryTracksTheNamespacesTheOperatorIsBoundIn(t *testing.T) {
 
 	awaitChange(registry, t)
 
-	if namespaces := registry.BoundNamespaces(); !slices.Equal(namespaces, []string{"able", "baker"}) {
-		t.Errorf("BoundNamespaces() = %v, want [able baker]", namespaces)
+	if namespaces := registry.ActiveNamespaces(); !slices.Equal(namespaces, []string{"able", "baker"}) {
+		t.Errorf("ActiveNamespaces() = %v, want [able baker]", namespaces)
 	}
 
 	if error := adminClient.Delete(context.Background(), newRoleBinding("able")); error != nil {
@@ -155,8 +155,8 @@ func TestRegistryTracksTheNamespacesTheOperatorIsBoundIn(t *testing.T) {
 
 	awaitChange(registry, t)
 
-	if namespaces := registry.BoundNamespaces(); len(namespaces) != 0 {
-		t.Errorf("BoundNamespaces() = %v, want none once no environment is bound", namespaces)
+	if namespaces := registry.ActiveNamespaces(); len(namespaces) != 0 {
+		t.Errorf("ActiveNamespaces() = %v, want none once no environment is bound", namespaces)
 	}
 }
 

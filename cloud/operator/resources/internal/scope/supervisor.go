@@ -41,7 +41,7 @@ func Supervise(
 	stop <-chan struct{},
 ) error {
 	for {
-		namespaces := slices.Concat(baseNamespaces, registry.BoundNamespaces())
+		namespaces := slices.Concat(baseNamespaces, registry.ActiveNamespaces())
 
 		slices.Sort(namespaces)
 

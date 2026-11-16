@@ -681,6 +681,7 @@ func TestReconcileWaitsForTheNamespaceScope(t *testing.T) {
 		t.Errorf("status = %+v, want it untouched until the scope is known", liferayEnvironment.Status)
 	}
 }
+
 func activatedEnvironment() *licensingv1alpha1.LiferayEnvironment {
 	activatedAt := metav1.Now()
 

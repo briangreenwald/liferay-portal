@@ -192,8 +192,6 @@ func (operator *operator) run(context context.Context) error {
 }
 
 func (operator *operator) runManager(context context.Context, snapshot *scope.Snapshot) error {
-	config := operator.config
-
 	var namespaces []string
 
 	var namespaceScope scope.Scope
@@ -203,6 +201,8 @@ func (operator *operator) runManager(context context.Context, snapshot *scope.Sn
 
 		namespaceScope = snapshot
 	}
+
+	config := operator.config
 
 	managerOptions, error := newManagerOptions(config, namespaces)
 
