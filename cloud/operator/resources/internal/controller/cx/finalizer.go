@@ -100,21 +100,34 @@ func (clientExtensionReconciler *ClientExtensionReconciler) deleteExtProvisionCo
 	clientExtension *cxv1alpha1.ClientExtension,
 	context context.Context,
 ) ([]string, error) {
-	var ownedExtProvisionConfigMaps corev1.ConfigMapList
+	namespaces := []string{metav1.NamespaceAll}
 
-	if error := clientExtensionReconciler.APIReader.List(
-		context, &ownedExtProvisionConfigMaps, client.MatchingLabels{
-			LabelMetadataType: MetadataTypeExtProvision,
-			LabelOwner:        ownerLabelValue(clientExtension),
-		},
-	); error != nil {
-		return nil, error
+	if clientExtensionReconciler.Scope != nil {
+		namespaces = clientExtensionReconciler.Scope.ActiveNamespaces()
+	}
+
+	var ownedExtProvisionConfigMaps []corev1.ConfigMap
+
+	for _, namespace := range namespaces {
+		var configMapList corev1.ConfigMapList
+
+		if error := clientExtensionReconciler.APIReader.List(
+			context, &configMapList, client.InNamespace(namespace),
+			client.MatchingLabels{
+				LabelMetadataType: MetadataTypeExtProvision,
+				LabelOwner:        ownerLabelValue(clientExtension),
+			},
+		); error != nil {
+			return nil, error
+		}
+
+		ownedExtProvisionConfigMaps = append(ownedExtProvisionConfigMaps, configMapList.Items...)
 	}
 
 	var errorMessages []string
 
-	for index := range ownedExtProvisionConfigMaps.Items {
-		configMap := &ownedExtProvisionConfigMaps.Items[index]
+	for index := range ownedExtProvisionConfigMaps {
+		configMap := &ownedExtProvisionConfigMaps[index]
 
 		deleteError := clientExtensionReconciler.Delete(context, configMap)
 

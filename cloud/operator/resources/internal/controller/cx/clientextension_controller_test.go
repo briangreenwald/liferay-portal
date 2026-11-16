@@ -6,11 +6,13 @@ import (
 	"errors"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	cxv1alpha1 "github.com/liferay/liferay-portal/cloud/operator/api/cx/v1alpha1"
+	scope "github.com/liferay/liferay-portal/cloud/operator/internal/scope"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -26,8 +28,35 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	fake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	interceptor "sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	event "sigs.k8s.io/controller-runtime/pkg/event"
 	reconcile "sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+func (stubScope *stubScope) ActiveNamespaces() []string {
+	var namespaces []string
+
+	for namespace, state := range stubScope.states {
+		if state == scope.StateActive {
+			namespaces = append(namespaces, namespace)
+		}
+	}
+
+	slices.Sort(namespaces)
+
+	return namespaces
+}
+
+func (stubScope *stubScope) ClientExtensionEvents() <-chan event.GenericEvent {
+	return nil
+}
+
+func (stubScope *stubScope) LiferayEnvironmentEvents() <-chan event.GenericEvent {
+	return nil
+}
+
+func (stubScope *stubScope) State(namespace string) scope.State {
+	return stubScope.states[namespace]
+}
 
 func TestReconcileAcceptsClientExtensionOnceAllowed(t *testing.T) {
 	clientExtension := newClientExtension("liferay-dev", "sample", "able")
@@ -62,10 +91,38 @@ func TestReconcileAllowedNamespaces(t *testing.T) {
 		dxpNamespace string
 		messages     []string
 		objects      []client.Object
+		scopeStates  map[string]scope.State
 		wantPhase    string
 		wantReason   string
 		wantStatus   metav1.ConditionStatus
 	}{
+		"a DXP namespace the operator is bound in is permitted": {
+			dxpNamespace: "liferay-dev",
+			messages:     []string{`in namespace "liferay-dev"`},
+			objects: []client.Object{
+				newDxpMetadataConfigMap("liferay-dev", "liferay.com"),
+				newDxpNamespace(), newPolicyConfigMap("able"),
+			},
+			scopeStates: map[string]scope.State{"able": scope.StateActive, "liferay-dev": scope.StateActive},
+			wantPhase:   cxv1alpha1.PhaseReady,
+			wantReason:  ReasonDelivered,
+			wantStatus:  metav1.ConditionTrue,
+		},
+		"a DXP namespace the operator is not bound in is refused": {
+			dxpNamespace: "liferay-dev",
+			messages: []string{
+				`The DXP operator is not bound in namespace "liferay-dev"`,
+				`binds ClusterRole "dxp-operator-namespace-cluster-role"`,
+			},
+			objects: []client.Object{
+				newDxpMetadataConfigMap("liferay-dev", "liferay.com"),
+				newDxpNamespace(), newPolicyConfigMap("able"),
+			},
+			scopeStates: map[string]scope.State{"able": scope.StateActive, "liferay-dev": scope.StateNotBound},
+			wantPhase:   cxv1alpha1.PhaseDegraded,
+			wantReason:  ReasonDxpNamespaceNotBound,
+			wantStatus:  metav1.ConditionFalse,
+		},
 		"a listed namespace is permitted": {
 			dxpNamespace: "liferay-dev",
 			messages:     []string{`in namespace "liferay-dev"`},
@@ -125,6 +182,10 @@ func TestReconcileAllowedNamespaces(t *testing.T) {
 			clientExtension := newClientExtension(testCase.dxpNamespace, "sample", "able")
 
 			clientExtensionReconciler := newClientExtensionReconciler(nil, t, append(testCase.objects, clientExtension)...)
+
+			if testCase.scopeStates != nil {
+				clientExtensionReconciler.Scope = &stubScope{states: testCase.scopeStates}
+			}
 
 			reconcileClientExtension(clientExtension, clientExtensionReconciler, t)
 
@@ -807,6 +868,47 @@ func TestReconcileReportsExtInitMissingForEachApplication(t *testing.T) {
 	}
 }
 
+func TestReconcileReportsOperatorNotBound(t *testing.T) {
+	clientExtension := newClientExtension("", "sample", "able")
+
+	clientExtensionReconciler := newClientExtensionReconciler(
+		nil, t, clientExtension, newDxpMetadataConfigMap("able", "liferay.com"),
+	)
+
+	fakeRecorder := record.NewFakeRecorder(10)
+
+	clientExtensionReconciler.Recorder = fakeRecorder
+	clientExtensionReconciler.Scope = &stubScope{states: map[string]scope.State{"able": scope.StateNotBound}}
+	clientExtensionReconciler.ServiceAccount = "dxp-operator-system/dxp-operator"
+
+	phase, reason := reconcileClientExtension(clientExtension, clientExtensionReconciler, t)
+
+	if (phase != cxv1alpha1.PhaseDegraded) || (reason != ReasonOperatorNotBound) {
+		t.Errorf(
+			"Reconcile() = %s / %s, want %s / %s", phase, reason, cxv1alpha1.PhaseDegraded, ReasonOperatorNotBound,
+		)
+	}
+
+	delivered := getDelivered(clientExtension, clientExtensionReconciler, t)
+
+	for _, message := range []string{
+		`The DXP operator is not bound in namespace "able"`,
+		`ServiceAccount "dxp-operator-system/dxp-operator"`,
+	} {
+		if !strings.Contains(delivered.Message, message) {
+			t.Errorf("Expected the Delivered message to contain %q, got %q", message, delivered.Message)
+		}
+	}
+
+	if getExtProvisionConfigMap(clientExtensionReconciler, "able", t) != nil {
+		t.Error("Expected nothing delivered to a namespace the operator is not bound in")
+	}
+
+	if len(fakeRecorder.Events) != 0 {
+		t.Errorf("Expected no events in a namespace the operator is not bound in, got %q", <-fakeRecorder.Events)
+	}
+}
+
 func TestReconcileReportsStaleExtProvisionConfigMapItMayNotDelete(t *testing.T) {
 	clientExtension := newClientExtension("liferay-dev", "able", "able")
 
@@ -863,6 +965,44 @@ func TestReconcileReportsStaleExtProvisionConfigMapItMayNotDelete(t *testing.T) 
 		clientExtension, clientExtensionReconciler, t,
 	).Message; !strings.Contains(message, want) {
 		t.Errorf("Expected the Delivered message to contain %q, got %q", want, message)
+	}
+}
+
+func TestReconcileRequeuesMissingDxpNamespace(t *testing.T) {
+	testCases := map[string]struct {
+		scopeStates      map[string]scope.State
+		wantRequeueAfter time.Duration
+	}{
+		"a namespace scope polls for it": {
+			scopeStates:      map[string]scope.State{"able": scope.StateActive},
+			wantRequeueAfter: refusalRequeueInterval,
+		},
+		"the namespace watch reports it": {},
+	}
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			clientExtension := newClientExtension("liferay-dev", "sample", "able")
+
+			clientExtensionReconciler := newClientExtensionReconciler(nil, t, clientExtension)
+
+			if testCase.scopeStates != nil {
+				clientExtensionReconciler.Scope = &stubScope{states: testCase.scopeStates}
+			}
+
+			result, error := clientExtensionReconciler.Reconcile(
+				context.Background(),
+				controllerruntime.Request{NamespacedName: client.ObjectKeyFromObject(clientExtension)},
+			)
+
+			if error != nil {
+				t.Fatalf("Reconcile() error = %v, want nil", error)
+			}
+
+			if result.RequeueAfter != testCase.wantRequeueAfter {
+				t.Errorf("Reconcile() RequeueAfter = %v, want %v", result.RequeueAfter, testCase.wantRequeueAfter)
+			}
+		})
 	}
 }
 
@@ -1109,6 +1249,55 @@ func TestReconcileUpdatesItsOwnExtProvisionConfigMapInPlace(t *testing.T) {
 
 	if _, ok := extProvisionConfigMap.Annotations[AnnotationMainDomain]; ok {
 		t.Errorf("Expected the domain annotations to be removed with the domain, got %v", extProvisionConfigMap.Annotations)
+	}
+}
+
+func TestReconcileWaitsForTheNamespaceScope(t *testing.T) {
+	testCases := map[string]struct {
+		dxpNamespace string
+		scopeStates  map[string]scope.State
+	}{
+		"the DXP namespace is not evaluated yet": {
+			dxpNamespace: "liferay-dev",
+			scopeStates:  map[string]scope.State{"able": scope.StateActive},
+		},
+		"the client extension namespace is not evaluated yet": {
+			scopeStates: map[string]scope.State{},
+		},
+	}
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			clientExtension := newClientExtension(testCase.dxpNamespace, "sample", "able")
+
+			clientExtensionReconciler := newClientExtensionReconciler(
+				nil, t, clientExtension, newDxpMetadataConfigMap("able", "liferay.com"),
+				newDxpMetadataConfigMap("liferay-dev", "liferay.com"), newDxpNamespace(),
+				newPolicyConfigMap("able"),
+			)
+
+			clientExtensionReconciler.Scope = &stubScope{states: testCase.scopeStates}
+
+			result, error := clientExtensionReconciler.Reconcile(
+				context.Background(),
+				controllerruntime.Request{NamespacedName: client.ObjectKeyFromObject(clientExtension)},
+			)
+
+			if error != nil {
+				t.Fatalf("Reconcile() error = %v, want nil", error)
+			}
+
+			if result.RequeueAfter != 0 {
+				t.Errorf("Reconcile() RequeueAfter = %v, want no requeue", result.RequeueAfter)
+			}
+
+			if delivered := meta.FindStatusCondition(
+				getClientExtension(clientExtension, clientExtensionReconciler, t).Status.Conditions,
+				cxv1alpha1.ConditionDelivered,
+			); delivered != nil {
+				t.Errorf("Delivered = %s / %s, want no condition until the scope is known", delivered.Status, delivered.Reason)
+			}
+		})
 	}
 }
 
@@ -1484,4 +1673,8 @@ func reconcileClientExtension(
 	}
 
 	return updatedClientExtension.Status.Phase, delivered.Reason
+}
+
+type stubScope struct {
+	states map[string]scope.State
 }

@@ -67,7 +67,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) ensureIdentity
 			"public.pem": []byte(publicPEM),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Labels:    map[string]string{"controller-watched": "yes"},
+			Labels:    map[string]string{LabelControllerWatched: "yes"},
 			Name:      identitySecretKey.Name,
 			Namespace: identitySecretKey.Namespace,
 		},

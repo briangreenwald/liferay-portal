@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	licensingv1alpha1 "github.com/liferay/liferay-portal/cloud/operator/api/licensing/v1alpha1"
 	addon "github.com/liferay/liferay-portal/cloud/operator/internal/addon"
 	provisioning "github.com/liferay/liferay-portal/cloud/operator/internal/provisioning"
+	scope "github.com/liferay/liferay-portal/cloud/operator/internal/scope"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -31,6 +33,7 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	fake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	interceptor "sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	event "sigs.k8s.io/controller-runtime/pkg/event"
 )
 
 func (stubProvisioning *stubProvisioning) Activate(
@@ -42,6 +45,14 @@ func (stubProvisioning *stubProvisioning) Activate(
 	stubProvisioning.activationRequest = activationRequest
 
 	return stubProvisioning.activateError
+}
+
+func (stubScope *stubScope) ActiveNamespaces() []string {
+	return nil
+}
+
+func (stubScope *stubScope) ClientExtensionEvents() <-chan event.GenericEvent {
+	return nil
 }
 
 func (stubProvisioning *stubProvisioning) DownloadAddOn(
@@ -58,6 +69,10 @@ func (stubProvisioning *stubProvisioning) DownloadAddOn(
 	return io.NopCloser(bytes.NewReader(stubProvisioning.downloadBody)), nil
 }
 
+func (stubScope *stubScope) LiferayEnvironmentEvents() <-chan event.GenericEvent {
+	return nil
+}
+
 func (stubProvisioning *stubProvisioning) Manifest(
 	context context.Context,
 	manifestRequest provisioning.ManifestRequest,
@@ -70,6 +85,131 @@ func (stubProvisioning *stubProvisioning) Manifest(
 
 func (inlineRunner inlineRunner) Run(task func()) {
 	task()
+}
+
+func (stubScope *stubScope) State(namespace string) scope.State {
+	return stubScope.states[namespace]
+}
+
+func TestLabelNamespaceAndGetEnvironmentID(t *testing.T) {
+	testCases := map[string]struct {
+		labels              map[string]string
+		scoped              bool
+		wantConditionReason string
+		wantLabels          map[string]string
+		wantPatches         int
+	}{
+		"a labeled namespace is left alone": {
+			labels:     map[string]string{environmentLabel: "true"},
+			wantLabels: map[string]string{environmentLabel: "true"},
+		},
+		"a namespace scope reports a labeled namespace": {
+			labels:              map[string]string{environmentLabel: "true"},
+			scoped:              true,
+			wantConditionReason: "Labeled",
+			wantLabels:          map[string]string{environmentLabel: "true"},
+		},
+		"a namespace scope reports an unlabeled namespace without patching it": {
+			labels:              map[string]string{"team": "able"},
+			scoped:              true,
+			wantConditionReason: "LabelMissing",
+			wantLabels:          map[string]string{"team": "able"},
+		},
+		"an unlabeled namespace is patched": {
+			labels:      map[string]string{"team": "able"},
+			wantLabels:  map[string]string{environmentLabel: "true", "team": "able"},
+			wantPatches: 1,
+		},
+	}
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			patches := 0
+
+			fakeClient := fake.NewClientBuilder().WithInterceptorFuncs(
+				interceptor.Funcs{
+					Patch: func(
+						context context.Context,
+						writer client.WithWatch,
+						object client.Object,
+						patch client.Patch,
+						options ...client.PatchOption,
+					) error {
+						patches++
+
+						return writer.Patch(context, object, patch, options...)
+					},
+					Update: func(
+						context context.Context,
+						writer client.WithWatch,
+						object client.Object,
+						options ...client.UpdateOption,
+					) error {
+						return errors.NewForbidden(
+							corev1.Resource("namespaces"), object.GetName(),
+							fmt.Errorf("the operator may only patch namespaces"),
+						)
+					},
+				},
+			).WithObjects(
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Labels: testCase.labels, Name: "liferay-dev", UID: "able-uid"},
+				},
+			).WithScheme(
+				newScheme(t),
+			).Build()
+
+			liferayEnvironmentReconciler := &LiferayEnvironmentReconciler{Client: fakeClient}
+
+			if testCase.scoped {
+				liferayEnvironmentReconciler.Scope = &stubScope{}
+			}
+
+			liferayEnvironment := newLiferayEnvironment("dev", "liferay-dev")
+
+			environmentID, error := liferayEnvironmentReconciler.labelNamespaceAndGetEnvironmentID(
+				context.Background(), liferayEnvironment,
+			)
+
+			if error != nil {
+				t.Fatalf("labelNamespaceAndGetEnvironmentID() error = %v, want nil", error)
+			}
+
+			if environmentID != "able-uid" {
+				t.Errorf("labelNamespaceAndGetEnvironmentID() = %q, want %q", environmentID, "able-uid")
+			}
+
+			if patches != testCase.wantPatches {
+				t.Errorf("patches = %d, want %d", patches, testCase.wantPatches)
+			}
+
+			var namespace corev1.Namespace
+
+			if error := fakeClient.Get(
+				context.Background(), types.NamespacedName{Name: "liferay-dev"}, &namespace,
+			); error != nil {
+				t.Fatal(error)
+			}
+
+			if !maps.Equal(namespace.Labels, testCase.wantLabels) {
+				t.Errorf("labels = %v, want %v", namespace.Labels, testCase.wantLabels)
+			}
+
+			condition := meta.FindStatusCondition(liferayEnvironment.Status.Conditions, conditionNamespaceLabeled)
+
+			if testCase.wantConditionReason == "" {
+				if condition != nil {
+					t.Errorf("NamespaceLabeled = %s, want no condition without a namespace scope", condition.Reason)
+				}
+
+				return
+			}
+
+			if (condition == nil) || (condition.Reason != testCase.wantConditionReason) {
+				t.Errorf("NamespaceLabeled = %v, want reason %q", condition, testCase.wantConditionReason)
+			}
+		})
+	}
 }
 
 func TestReconcileBacksOffFailedAddOn(t *testing.T) {
@@ -374,6 +514,52 @@ func TestReconcileReportsAddOnsReadyWhenDownloaded(t *testing.T) {
 	}
 }
 
+func TestReconcileReportsOperatorNotBound(t *testing.T) {
+	liferayEnvironmentReconciler := &LiferayEnvironmentReconciler{
+		Client: newFakeClient(
+			t, newLiferayEnvironment("dev", "liferay-dev"),
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "liferay-dev"}},
+		),
+		Scope:          &stubScope{states: map[string]scope.State{"liferay-dev": scope.StateNotBound}},
+		ServiceAccount: "dxp-operator-system/dxp-operator",
+	}
+
+	reconcile(liferayEnvironmentReconciler, t)
+
+	liferayEnvironment := &licensingv1alpha1.LiferayEnvironment{}
+
+	if error := liferayEnvironmentReconciler.Get(
+		context.Background(), types.NamespacedName{Name: "dev", Namespace: "liferay-dev"}, liferayEnvironment,
+	); error != nil {
+		t.Fatal(error)
+	}
+
+	if liferayEnvironment.Status.Phase != phasePending {
+		t.Errorf("phase = %q, want %q", liferayEnvironment.Status.Phase, phasePending)
+	}
+
+	condition := meta.FindStatusCondition(liferayEnvironment.Status.Conditions, conditionOperatorBound)
+
+	if (condition == nil) || (condition.Status != metav1.ConditionFalse) || (condition.Reason != "NotBound") {
+		t.Fatalf("OperatorBound = %v, want False / NotBound", condition)
+	}
+
+	for _, message := range []string{
+		`The DXP operator is not bound in namespace "liferay-dev"`,
+		`ServiceAccount "dxp-operator-system/dxp-operator"`,
+	} {
+		if !strings.Contains(condition.Message, message) {
+			t.Errorf("Expected the OperatorBound message to contain %q, got %q", message, condition.Message)
+		}
+	}
+
+	if error := liferayEnvironmentReconciler.Get(
+		context.Background(), types.NamespacedName{Name: "dev-identity", Namespace: "liferay-dev"}, &corev1.Secret{},
+	); !errors.IsNotFound(error) {
+		t.Errorf("Get() of the identity secret = %v, want it never created", error)
+	}
+}
+
 func TestReconcileResetsAddOnBackoffOnSuccess(t *testing.T) {
 	body := []byte("PK\x03\x04 sample lpkg")
 
@@ -473,6 +659,28 @@ func TestReconcileSurfacesAddOnError(t *testing.T) {
 	}
 }
 
+func TestReconcileWaitsForTheNamespaceScope(t *testing.T) {
+	liferayEnvironmentReconciler := &LiferayEnvironmentReconciler{
+		Client: newFakeClient(t, newLiferayEnvironment("dev", "liferay-dev")),
+		Scope:  &stubScope{},
+	}
+
+	if result := reconcile(liferayEnvironmentReconciler, t); result.RequeueAfter != 0 {
+		t.Errorf("Reconcile() RequeueAfter = %v, want no requeue", result.RequeueAfter)
+	}
+
+	liferayEnvironment := &licensingv1alpha1.LiferayEnvironment{}
+
+	if error := liferayEnvironmentReconciler.Get(
+		context.Background(), types.NamespacedName{Name: "dev", Namespace: "liferay-dev"}, liferayEnvironment,
+	); error != nil {
+		t.Fatal(error)
+	}
+
+	if (liferayEnvironment.Status.Phase != "") || (len(liferayEnvironment.Status.Conditions) > 0) {
+		t.Errorf("status = %+v, want it untouched until the scope is known", liferayEnvironment.Status)
+	}
+}
 func activatedEnvironment() *licensingv1alpha1.LiferayEnvironment {
 	activatedAt := metav1.Now()
 
@@ -1128,6 +1336,10 @@ type stubProvisioning struct {
 	entitlements      *provisioning.Entitlements
 	manifestCalled    bool
 	manifestError     error
+}
+
+type stubScope struct {
+	states map[string]scope.State
 }
 
 var workloadKinds = []licensingv1alpha1.WorkloadKind{

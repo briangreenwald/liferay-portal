@@ -2,11 +2,14 @@ package cx
 
 import (
 	"context"
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	cxv1alpha1 "github.com/liferay/liferay-portal/cloud/operator/api/cx/v1alpha1"
+	scope "github.com/liferay/liferay-portal/cloud/operator/internal/scope"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/api/meta"
@@ -14,6 +17,7 @@ import (
 	record "k8s.io/client-go/tools/record"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
+	interceptor "sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	controllerutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -151,6 +155,69 @@ func TestReconcileDeleteGracePeriod(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestReconcileDeletesFromActiveNamespacesOnRemoval(t *testing.T) {
+	clientExtension := newClientExtension("liferay-dev", "able", "liferay-cx")
+
+	clientExtensionReconciler := newClientExtensionReconciler(
+		nil, t, clientExtension, newDxpMetadataConfigMap("liferay-dev", "liferay.com"),
+		newDxpNamespace(), newPolicyConfigMap("liferay-cx"),
+	)
+
+	clientExtensionReconciler.Scope = &stubScope{
+		states: map[string]scope.State{"liferay-cx": scope.StateActive, "liferay-dev": scope.StateActive},
+	}
+
+	reconcileClientExtension(clientExtension, clientExtensionReconciler, t)
+
+	var listedNamespaces []string
+
+	clientExtensionReconciler.APIReader = interceptor.NewClient(
+		clientExtensionReconciler.APIReader.(client.WithWatch),
+		interceptor.Funcs{
+			List: func(
+				context context.Context, fakeClient client.WithWatch, objectList client.ObjectList,
+				options ...client.ListOption,
+			) error {
+				var listOptions client.ListOptions
+
+				listOptions.ApplyOptions(options)
+
+				if listOptions.Namespace == "" {
+					return apierrors.NewForbidden(
+						corev1.Resource("configmaps"), "", errors.New("the operator may not list across all namespaces"),
+					)
+				}
+
+				listedNamespaces = append(listedNamespaces, listOptions.Namespace)
+
+				return fakeClient.List(context, objectList, options...)
+			},
+		},
+	)
+
+	if error := clientExtensionReconciler.Delete(
+		context.Background(), clientExtension,
+	); error != nil {
+		t.Fatal(error)
+	}
+
+	if _, error := clientExtensionReconciler.Reconcile(
+		context.Background(), controllerruntime.Request{
+			NamespacedName: client.ObjectKeyFromObject(clientExtension),
+		},
+	); error != nil {
+		t.Fatalf("Reconcile() error = %v, want nil", error)
+	}
+
+	if getExtProvisionConfigMap(clientExtensionReconciler, "liferay-dev", t) != nil {
+		t.Error("Expected the ext-provision ConfigMap to be deleted")
+	}
+
+	if wantNamespaces := []string{"liferay-cx", "liferay-dev"}; !slices.Equal(listedNamespaces, wantNamespaces) {
+		t.Errorf("listed namespaces = %v, want %v", listedNamespaces, wantNamespaces)
 	}
 }
 

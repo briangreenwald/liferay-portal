@@ -10,6 +10,7 @@ import (
 	"time"
 
 	cxv1alpha1 "github.com/liferay/liferay-portal/cloud/operator/api/cx/v1alpha1"
+	scope "github.com/liferay/liferay-portal/cloud/operator/internal/scope"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	handler "sigs.k8s.io/controller-runtime/pkg/handler"
 	predicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	reconcile "sigs.k8s.io/controller-runtime/pkg/reconcile"
+	source "sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -35,6 +37,7 @@ const (
 	ReasonDeleting               = "Deleting"
 	ReasonDelivered              = "Delivered"
 	ReasonDeliveryNotPermitted   = "DeliveryNotPermitted"
+	ReasonDxpNamespaceNotBound   = "DxpNamespaceNotBound"
 	ReasonDxpNamespaceNotFound   = "DxpNamespaceNotFound"
 	ReasonExtInitMissing         = "ExtInitMissing"
 	ReasonMirrorFailed           = "MirrorFailed"
@@ -42,6 +45,7 @@ const (
 	ReasonNamespaceNotPermitted  = "NamespaceNotPermitted"
 	ReasonNoExtInitRequired      = "NoExtInitRequired"
 	ReasonNoMirrorRequired       = "NoMirrorRequired"
+	ReasonOperatorNotBound       = "OperatorNotBound"
 	ReasonProvisioned            = "Provisioned"
 	ReasonReady                  = "Ready"
 	ReasonServiceIDConflict      = "ServiceIDConflict"
@@ -54,6 +58,10 @@ const (
 const deliveryClusterRoleName = "client-extension-delivery-cluster-role"
 
 const extInitGracePeriod = 30 * time.Second
+
+const namespaceClusterRoleName = "dxp-operator-namespace-cluster-role"
+
+const reasonDxpNamespacePending = "DxpNamespacePending"
 
 const refusalRequeueInterval = time.Minute
 
@@ -78,6 +86,26 @@ func (clientExtensionReconciler *ClientExtensionReconciler) Reconcile(
 		return controllerruntime.Result{}, client.IgnoreNotFound(error)
 	}
 
+	if clientExtensionReconciler.Scope != nil {
+		switch clientExtensionReconciler.Scope.State(clientExtension.Namespace) {
+		case scope.StateNotBound:
+			return controllerruntime.Result{}, clientExtensionReconciler.updateStatus(
+				&clientExtension, context,
+				newCondition(
+					metav1.ConditionFalse,
+					fmt.Sprintf(
+						"The DXP operator is not bound in namespace %q. Whoever manages the namespace binds ClusterRole %q to ServiceAccount %q there.",
+						clientExtension.Namespace, namespaceClusterRoleName, clientExtensionReconciler.ServiceAccount,
+					),
+					ReasonOperatorNotBound,
+				),
+				"", nil, nil, nil, nil,
+			)
+		case scope.StateUnknown:
+			return controllerruntime.Result{}, nil
+		}
+	}
+
 	if !clientExtension.DeletionTimestamp.IsZero() {
 		return clientExtensionReconciler.deleteClientExtension(&clientExtension, context)
 	}
@@ -96,11 +124,19 @@ func (clientExtensionReconciler *ClientExtensionReconciler) Reconcile(
 		return controllerruntime.Result{}, error
 	}
 
+	if refusedReason == reasonDxpNamespacePending {
+		return controllerruntime.Result{}, nil
+	}
+
 	if refusedReason != "" {
 		if error := clientExtensionReconciler.updateStatus(
 			&clientExtension, context,
 			newCondition(
-				metav1.ConditionFalse, refusalMessage(&clientExtension, dxpNamespace, refusedReason), refusedReason,
+				metav1.ConditionFalse,
+				refusalMessage(
+					&clientExtension, dxpNamespace, refusedReason, clientExtensionReconciler.ServiceAccount,
+				),
+				refusedReason,
 			),
 			"", nil, nil, nil, nil,
 		); error != nil {
@@ -115,6 +151,10 @@ func (clientExtensionReconciler *ClientExtensionReconciler) Reconcile(
 			)
 		} else if error != nil {
 			return controllerruntime.Result{}, error
+		}
+
+		if (refusedReason == ReasonDxpNamespaceNotFound) && (clientExtensionReconciler.Scope != nil) {
+			return controllerruntime.Result{RequeueAfter: refusalRequeueInterval}, nil
 		}
 
 		return controllerruntime.Result{}, nil
@@ -282,7 +322,7 @@ func (clientExtensionReconciler *ClientExtensionReconciler) Reconcile(
 func (clientExtensionReconciler *ClientExtensionReconciler) SetupWithManager(
 	manager controllerruntime.Manager,
 ) error {
-	return controllerruntime.NewControllerManagedBy(
+	controllerBuilder := controllerruntime.NewControllerManagedBy(
 		manager,
 	).For(
 		&cxv1alpha1.ClientExtension{},
@@ -307,13 +347,23 @@ func (clientExtensionReconciler *ClientExtensionReconciler) SetupWithManager(
 	).Watches(
 		&corev1.ConfigMap{},
 		handler.EnqueueRequestsFromMapFunc(clientExtensionReconciler.requestsForConfigMap),
-	).Watches(
-		&corev1.Namespace{},
-		handler.EnqueueRequestsFromMapFunc(clientExtensionReconciler.requestsForNamespace),
-		builder.WithPredicates(namespaceExistencePredicate),
-	).Complete(
-		clientExtensionReconciler,
 	)
+
+	if clientExtensionReconciler.Scope == nil {
+		controllerBuilder = controllerBuilder.Watches(
+			&corev1.Namespace{},
+			handler.EnqueueRequestsFromMapFunc(clientExtensionReconciler.requestsForNamespace),
+			builder.WithPredicates(namespaceExistencePredicate),
+		)
+	} else {
+		controllerBuilder = controllerBuilder.WatchesRawSource(
+			source.Channel(
+				clientExtensionReconciler.Scope.ClientExtensionEvents(), &handler.EnqueueRequestForObject{},
+			),
+		)
+	}
+
+	return controllerBuilder.Complete(clientExtensionReconciler)
 }
 
 func appendOptionalCondition(
@@ -612,12 +662,19 @@ func readyCondition(conditions []metav1.Condition) metav1.Condition {
 }
 
 func refusalMessage(
-	clientExtension *cxv1alpha1.ClientExtension, dxpNamespace string, reason string,
+	clientExtension *cxv1alpha1.ClientExtension, dxpNamespace string, reason string, serviceAccount string,
 ) string {
 	if reason == ReasonDxpNamespaceNotFound {
 		return fmt.Sprintf(
 			"Namespace %q does not exist, so there is no DXP to deliver to. Set spec.dxpNamespace to the namespace DXP runs in.",
 			dxpNamespace,
+		)
+	}
+
+	if reason == ReasonDxpNamespaceNotBound {
+		return fmt.Sprintf(
+			"The DXP operator is not bound in namespace %q, so this client extension is not delivered there. Whoever manages DXP binds ClusterRole %q to ServiceAccount %q there.",
+			dxpNamespace, namespaceClusterRoleName, serviceAccount,
 		)
 	}
 
@@ -747,6 +804,15 @@ func (clientExtensionReconciler *ClientExtensionReconciler) resolveDxpNamespace(
 
 	if getError != nil {
 		return "", "", getError
+	}
+
+	if clientExtensionReconciler.Scope != nil {
+		switch clientExtensionReconciler.Scope.State(dxpNamespace) {
+		case scope.StateNotBound:
+			return dxpNamespace, ReasonDxpNamespaceNotBound, nil
+		case scope.StateUnknown:
+			return dxpNamespace, reasonDxpNamespacePending, nil
+		}
 	}
 
 	var policyConfigMap corev1.ConfigMap
@@ -887,7 +953,7 @@ func (clientExtensionReconciler *ClientExtensionReconciler) updateStatus(
 		return client.IgnoreNotFound(error)
 	}
 
-	if status.Phase == cxv1alpha1.PhaseDegraded {
+	if (status.Phase == cxv1alpha1.PhaseDegraded) && (ready.Reason != ReasonOperatorNotBound) {
 		clientExtensionReconciler.Recorder.Event(clientExtension, corev1.EventTypeWarning, ready.Reason, ready.Message)
 	}
 
@@ -899,6 +965,7 @@ type ClientExtensionReconciler struct {
 
 	APIReader      client.Reader
 	Recorder       record.EventRecorder
+	Scope          scope.Scope
 	ServiceAccount string
 }
 

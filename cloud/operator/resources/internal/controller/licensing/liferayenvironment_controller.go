@@ -14,6 +14,7 @@ import (
 	addon "github.com/liferay/liferay-portal/cloud/operator/internal/addon"
 	backoff "github.com/liferay/liferay-portal/cloud/operator/internal/backoff"
 	provisioning "github.com/liferay/liferay-portal/cloud/operator/internal/provisioning"
+	scope "github.com/liferay/liferay-portal/cloud/operator/internal/scope"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,15 +30,21 @@ import (
 	handler "sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	predicate "sigs.k8s.io/controller-runtime/pkg/predicate"
+	source "sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+const LabelControllerWatched = "controller-watched"
 
 const (
 	activationPollInterval                   = 15 * time.Second
 	conditionActivated                       = "Activated"
 	conditionAddOnsReady                     = "AddOnsReady"
 	conditionLegacyGracePeriodExpired        = "GracePeriodExpired"
+	conditionNamespaceLabeled                = "NamespaceLabeled"
+	conditionOperatorBound                   = "OperatorBound"
 	environmentLabel                         = "licensing.liferay.com/environment"
 	fieldOwner                               = "liferay-dxp-operator"
+	namespaceClusterRoleName                 = "dxp-operator-namespace-cluster-role"
 	phaseDegraded                            = "Degraded"
 	phasePending                             = "Pending"
 	phaseReady                               = "Ready"
@@ -45,7 +52,7 @@ const (
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;update;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=create;get;list;update;watch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;update;watch
@@ -64,6 +71,43 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) Reconcile(
 		return controllerruntime.Result{}, client.IgnoreNotFound(error)
 	}
 
+	if liferayEnvironmentReconciler.Scope != nil {
+		switch liferayEnvironmentReconciler.Scope.State(liferayEnvironment.Namespace) {
+		case scope.StateNotBound:
+			meta.SetStatusCondition(
+				&liferayEnvironment.Status.Conditions,
+				metav1.Condition{
+					Message: fmt.Sprintf(
+						"The DXP operator is not bound in namespace %q. Whoever manages the namespace binds ClusterRole %q to ServiceAccount %q there.",
+						liferayEnvironment.Namespace, namespaceClusterRoleName,
+						liferayEnvironmentReconciler.ServiceAccount,
+					),
+					Reason: "NotBound",
+					Status: metav1.ConditionFalse,
+					Type:   conditionOperatorBound,
+				},
+			)
+
+			liferayEnvironment.Status.Phase = phasePending
+
+			return liferayEnvironmentReconciler.finishAfter(context, liferayEnvironment, 0)
+		case scope.StateUnknown:
+			return controllerruntime.Result{}, nil
+		}
+
+		meta.SetStatusCondition(
+			&liferayEnvironment.Status.Conditions,
+			metav1.Condition{
+				Message: fmt.Sprintf(
+					"The DXP operator is bound in namespace %q.", liferayEnvironment.Namespace,
+				),
+				Reason: "Bound",
+				Status: metav1.ConditionTrue,
+				Type:   conditionOperatorBound,
+			},
+		)
+	}
+
 	if error := liferayEnvironmentReconciler.ensureDeploySyncSecret(
 		context, liferayEnvironment,
 	); error != nil {
@@ -75,7 +119,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) Reconcile(
 	)
 
 	environmentID, error := liferayEnvironmentReconciler.labelNamespaceAndGetEnvironmentID(
-		context, liferayEnvironment.Namespace,
+		context, liferayEnvironment,
 	)
 
 	if error != nil {
@@ -190,7 +234,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) SetupWithManag
 
 	customResourceDefinition.SetGroupVersionKind(customResourceDefinitionGroupVersionKind)
 
-	liferayEnvironmentController, error := controllerruntime.NewControllerManagedBy(
+	controllerBuilder := controllerruntime.NewControllerManagedBy(
 		manager,
 	).For(
 		&licensingv1alpha1.LiferayEnvironment{},
@@ -222,9 +266,17 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) SetupWithManag
 				},
 			),
 		),
-	).Build(
-		liferayEnvironmentReconciler,
 	)
+
+	if liferayEnvironmentReconciler.Scope != nil {
+		controllerBuilder = controllerBuilder.WatchesRawSource(
+			source.Channel(
+				liferayEnvironmentReconciler.Scope.LiferayEnvironmentEvents(), &handler.EnqueueRequestForObject{},
+			),
+		)
+	}
+
+	liferayEnvironmentController, error := controllerBuilder.Build(liferayEnvironmentReconciler)
 
 	if error != nil {
 		return error
@@ -299,7 +351,7 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) ensureOwnedSec
 				secret.Labels = map[string]string{}
 			}
 
-			secret.Labels["controller-watched"] = "yes"
+			secret.Labels[LabelControllerWatched] = "yes"
 
 			return controllerruntime.SetControllerReference(liferayEnvironment, secret, liferayEnvironmentReconciler.Scheme())
 		},
@@ -350,21 +402,33 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) getEnvironment
 
 func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) labelNamespaceAndGetEnvironmentID(
 	context context.Context,
-	namespaceName string,
+	liferayEnvironment *licensingv1alpha1.LiferayEnvironment,
 ) (string, error) {
 	namespace := &corev1.Namespace{}
 
 	if error := liferayEnvironmentReconciler.Get(
-		context, types.NamespacedName{Name: namespaceName}, namespace,
+		context, types.NamespacedName{Name: liferayEnvironment.Namespace}, namespace,
 	); error != nil {
 		return "", error
 	}
 
 	environmentID := string(namespace.UID)
 
-	if namespace.Labels[environmentLabel] == "true" {
+	labeled := namespace.Labels[environmentLabel] == "true"
+
+	if liferayEnvironmentReconciler.Scope != nil {
+		meta.SetStatusCondition(
+			&liferayEnvironment.Status.Conditions, namespaceLabeledCondition(labeled, namespace.Name),
+		)
+
 		return environmentID, nil
 	}
+
+	if labeled {
+		return environmentID, nil
+	}
+
+	patch := client.MergeFrom(namespace.DeepCopy())
 
 	if namespace.Labels == nil {
 		namespace.Labels = map[string]string{}
@@ -373,10 +437,10 @@ func (liferayEnvironmentReconciler *LiferayEnvironmentReconciler) labelNamespace
 	namespace.Labels[environmentLabel] = "true"
 
 	logf.FromContext(context).Info(
-		"Namespace was labeled as a licensed environment", "namespace", namespaceName,
+		"Namespace was labeled as a licensed environment", "namespace", namespace.Name,
 	)
 
-	if error := liferayEnvironmentReconciler.Update(context, namespace); error != nil {
+	if error := liferayEnvironmentReconciler.Patch(context, namespace, patch); error != nil {
 		return "", error
 	}
 
@@ -393,6 +457,29 @@ func markActivated(liferayEnvironment *licensingv1alpha1.LiferayEnvironment) {
 	setCondition(conditionActivated, liferayEnvironment, "", "Activated", metav1.ConditionTrue)
 }
 
+func namespaceLabeledCondition(labeled bool, namespaceName string) metav1.Condition {
+	if labeled {
+		return metav1.Condition{
+			Message: fmt.Sprintf(
+				"Namespace %q carries label \"%s=true\", so the replica admission policy applies there.",
+				namespaceName, environmentLabel,
+			),
+			Reason: "Labeled",
+			Status: metav1.ConditionTrue,
+			Type:   conditionNamespaceLabeled,
+		}
+	}
+
+	return metav1.Condition{
+		Message: fmt.Sprintf(
+			"Namespace %q does not carry label \"%s=true\", so the replica admission policy does not apply there. Whoever manages the namespace adds the label.",
+			namespaceName, environmentLabel,
+		),
+		Reason: "LabelMissing",
+		Status: metav1.ConditionFalse,
+		Type:   conditionNamespaceLabeled,
+	}
+}
 func proceed() stepOutcome {
 	return stepOutcome{}
 }
@@ -443,6 +530,8 @@ type LiferayEnvironmentReconciler struct {
 	Recorder                record.EventRecorder
 	RetryInitialDelay       time.Duration
 	RetryMaxDelay           time.Duration
+	Scope                   scope.Scope
+	ServiceAccount          string
 	Syncer                  *addon.Syncer
 
 	scaledObjectWatch *scaledObjectWatch
