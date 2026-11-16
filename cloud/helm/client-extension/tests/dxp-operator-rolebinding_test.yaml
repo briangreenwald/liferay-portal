@@ -1,0 +1,38 @@
+release:
+    name: my-release
+    namespace: my-namespace
+set:
+    clientExtension:
+        configs:
+            com.liferay.client.extension.type.configuration.CETConfiguration~able:
+                name: Able
+        serviceId: able
+suite: DXP Operator RoleBinding
+templates:
+    -   templates/dxp-operator-rolebinding.yaml
+tests:
+    -   asserts:
+            -   equal:
+                    path: roleRef
+                    value:
+                        apiGroup: rbac.authorization.k8s.io
+                        kind: ClusterRole
+                        name: custom-namespace-cluster-role
+            -   equal:
+                    path: subjects
+                    value:
+                        -   kind: ServiceAccount
+                            name: liferay-dxp-operator
+                            namespace: liferay-system
+        it: Binds the configured operator role to the operator when enabled
+        set:
+            dxpOperatorRoleBinding:
+                clusterRoleName: custom-namespace-cluster-role
+                enabled: true
+            operatorServiceAccount:
+                name: liferay-dxp-operator
+                namespace: liferay-system
+    -   asserts:
+            -   hasDocuments:
+                    count: 0
+        it: Omits the binding by default

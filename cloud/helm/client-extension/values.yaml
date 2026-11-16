@@ -8,6 +8,9 @@ clientExtension:
     dxpNamespace: ""
     serviceId: ""
     virtualInstanceId: liferay.com
+dxpOperatorRoleBinding:
+    clusterRoleName: dxp-operator-namespace-cluster-role
+    enabled: false
 fullnameOverride: ""
 image:
     pullPolicy: IfNotPresent

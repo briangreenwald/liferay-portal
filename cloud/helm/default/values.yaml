@@ -329,6 +329,12 @@ database:
     port: ""
     tlsRequired: false
 dependencies: {}
+dxpOperatorRoleBinding:
+    clusterRoleName: dxp-operator-namespace-cluster-role
+    enabled: false
+    operatorServiceAccount:
+        name: dxp-operator
+        namespace: dxp-operator-system
 env:
     -   name: DNS_MEMBERSHIP_SERVICE_NAME
         value: liferay-default-headless

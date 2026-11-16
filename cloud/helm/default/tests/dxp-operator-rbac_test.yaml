@@ -1,0 +1,35 @@
+release:
+    name: liferay-default
+    namespace: liferay-acme-prd
+suite: DXP Operator RBAC
+templates:
+    -   templates/dxp-operator-rbac.yaml
+tests:
+    -   asserts:
+            -   equal:
+                    path: metadata.namespace
+                    value: liferay-acme-prd
+            -   equal:
+                    path: roleRef
+                    value:
+                        apiGroup: rbac.authorization.k8s.io
+                        kind: ClusterRole
+                        name: custom-namespace-cluster-role
+            -   equal:
+                    path: subjects
+                    value:
+                        -   kind: ServiceAccount
+                            name: liferay-dxp-operator
+                            namespace: liferay-system
+        it: Binds the configured operator role to the operator in this namespace when enabled
+        set:
+            dxpOperatorRoleBinding:
+                clusterRoleName: custom-namespace-cluster-role
+                enabled: true
+                operatorServiceAccount:
+                    name: liferay-dxp-operator
+                    namespace: liferay-system
+    -   asserts:
+            -   hasDocuments:
+                    count: 0
+        it: Omits the binding by default, so a cluster wide operator needs nothing here
