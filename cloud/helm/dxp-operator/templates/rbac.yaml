@@ -6,42 +6,13 @@ metadata:
         {{- include "dxp-operator.labels" . | nindent 8 }}
     name: {{ include "dxp-operator.fullname" . }}
 rules:
-    {{- if .Values.clientExtensions.enabled }}
-    -   apiGroups:
-            -   ""
-        resources:
-            -   configmaps
-        verbs:
-            -   get
-            -   list
-            -   watch
-    {{- end }}
-    -   apiGroups:
-            -   ""
-        resources:
-            -   events
-        verbs:
-            -   create
-            -   patch
+    {{- if eq .Values.rbac.scope "namespace" }}
     -   apiGroups:
             -   ""
         resources:
             -   namespaces
         verbs:
             -   get
-            -   list
-            -   update
-            -   watch
-    -   apiGroups:
-            -   ""
-        resources:
-            -   secrets
-        verbs:
-            -   create
-            -   get
-            -   list
-            -   update
-            -   watch
     -   apiGroups:
             -   apiextensions.k8s.io
         resources:
@@ -51,52 +22,13 @@ rules:
             -   list
             -   watch
     -   apiGroups:
-            -   apps
+            -   authorization.k8s.io
         resources:
-            -   deployments
+            -   selfsubjectaccessreviews
+            -   selfsubjectrulesreviews
         verbs:
-            -   get
-            -   list
-            {{- if .Values.clientExtensions.enabled }}
-            -   patch
-            {{- end }}
-            -   update
-            -   watch
-    -   apiGroups:
-            -   apps
-        resources:
-            -   statefulsets
-        verbs:
-            -   get
-            -   list
-            -   update
-            -   watch
-    -   apiGroups:
-            -   autoscaling
-        resources:
-            -   horizontalpodautoscalers
-        verbs:
-            -   get
-            -   list
-            -   patch
-            -   watch
+            -   create
     {{- if .Values.clientExtensions.enabled }}
-    -   apiGroups:
-            -   batch
-        resources:
-            -   cronjobs
-        verbs:
-            -   get
-            -   list
-            -   watch
-    -   apiGroups:
-            -   batch
-        resources:
-            -   jobs
-        verbs:
-            -   get
-            -   list
-            -   watch
     -   apiGroups:
             -   cx.liferay.com
         resources:
@@ -104,14 +36,7 @@ rules:
         verbs:
             -   get
             -   list
-            -   patch
             -   watch
-    -   apiGroups:
-            -   cx.liferay.com
-        resources:
-            -   clientextensions/finalizers
-        verbs:
-            -   update
     -   apiGroups:
             -   cx.liferay.com
         resources:
@@ -121,15 +46,6 @@ rules:
             -   patch
             -   update
     {{- end }}
-    -   apiGroups:
-            -   keda.sh
-        resources:
-            -   scaledobjects
-        verbs:
-            -   get
-            -   list
-            -   patch
-            -   watch
     -   apiGroups:
             -   licensing.liferay.com
         resources:
@@ -141,16 +57,13 @@ rules:
     -   apiGroups:
             -   licensing.liferay.com
         resources:
-            -   liferayenvironments/finalizers
-        verbs:
-            -   update
-    -   apiGroups:
-            -   licensing.liferay.com
-        resources:
             -   liferayenvironments/status
         verbs:
             -   get
             -   update
+    {{- else }}
+    {{- include "dxp-operator.rules" (dict "clusterScoped" true "context" . "namespaced" true) | trim | nindent 4 }}
+    {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -166,6 +79,33 @@ subjects:
     -   kind: ServiceAccount
         name: {{ include "dxp-operator.serviceAccountName" . }}
         namespace: {{ include "dxp-operator.namespace" . }}
+{{- if eq .Values.rbac.scope "namespace" }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+    labels:
+        {{- include "dxp-operator.labels" . | nindent 8 }}
+    name: dxp-operator-namespace-cluster-role
+rules:
+    {{- include "dxp-operator.rules" (dict "clusterScoped" false "context" . "namespaced" true) | trim | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+    labels:
+        {{- include "dxp-operator.labels" . | nindent 8 }}
+    name: {{ include "dxp-operator.fullname" . }}
+    namespace: {{ include "dxp-operator.namespace" . }}
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: dxp-operator-namespace-cluster-role
+subjects:
+    -   kind: ServiceAccount
+        name: {{ include "dxp-operator.serviceAccountName" . }}
+        namespace: {{ include "dxp-operator.namespace" . }}
+{{- end }}
 {{- end }}
 {{- if .Values.serviceAccount.create }}
 ---

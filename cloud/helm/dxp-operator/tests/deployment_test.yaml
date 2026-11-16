@@ -226,6 +226,13 @@ tests:
             clientExtensions.enabled: true
     -   asserts:
             -   equal:
+                    path: spec.template.spec.containers[0].env[?(@.name=="RBAC_SCOPE")].value
+                    value: namespace
+        it: Passes the RBAC scope as a quoted environment variable
+        set:
+            rbac.scope: namespace
+    -   asserts:
+            -   equal:
                     path: spec.template.spec.containers[0].env[?(@.name=="OPERATOR_NAMESPACE")].valueFrom.fieldRef.fieldPath
                     value: metadata.namespace
             -   equal:

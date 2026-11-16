@@ -9,6 +9,33 @@ tests:
             -   exists:
                     path: rules[?(@.resources[0]=="clientextensions")]
             -   exists:
+                    path: rules[?(@.resources[0]=="clientextensions/status")]
+        documentIndex: 0
+        it: Adds ClientExtension discovery to the operator cluster role in the namespace scope when the ClientExtension controller is enabled
+        set:
+            clientExtensions.enabled: true
+            rbac.scope: namespace
+    -   asserts:
+            -   exists:
+                    path: rules[?(@.resources[0]=="clientextensions")]
+            -   exists:
+                    path: rules[?(@.resources[0]=="configmaps")]
+            -   contains:
+                    content: patch
+                    path: rules[?(@.resources[0]=="deployments")].verbs
+            -   exists:
+                    path: rules[?(@.resources[0]=="jobs")]
+        documentSelector:
+            path: metadata.name
+            value: dxp-operator-namespace-cluster-role
+        it: Adds the ClientExtension rules to the namespace cluster role when the ClientExtension controller is enabled
+        set:
+            clientExtensions.enabled: true
+            rbac.scope: namespace
+    -   asserts:
+            -   exists:
+                    path: rules[?(@.resources[0]=="clientextensions")]
+            -   exists:
                     path: rules[?(@.resources[0]=="clientextensions/finalizers")]
             -   exists:
                     path: rules[?(@.resources[0]=="clientextensions/status")]
@@ -63,6 +90,28 @@ tests:
         it: Binds the named service account in the release namespace
         set:
             serviceAccount.name: operator-sa
+    -   asserts:
+            -   equal:
+                    path: metadata.namespace
+                    value: my-namespace
+            -   equal:
+                    path: roleRef
+                    value:
+                        apiGroup: rbac.authorization.k8s.io
+                        kind: ClusterRole
+                        name: dxp-operator-namespace-cluster-role
+            -   equal:
+                    path: subjects
+                    value:
+                        -   kind: ServiceAccount
+                            name: my-release-liferay-dxp-operator
+                            namespace: my-namespace
+        documentSelector:
+            path: kind
+            value: RoleBinding
+        it: Binds the namespace cluster role in the operator namespace in the namespace scope
+        set:
+            rbac.scope: namespace
     -   asserts:
             -   equal:
                     path: rules[?(@.resources[0]=="configmaps")].verbs
@@ -132,6 +181,50 @@ tests:
         it: Leaves the cluster role unnamespaced and unannotated
     -   asserts:
             -   equal:
+                    path: rules[?(@.resources[0]=="namespaces")].verbs
+                    value:
+                        -   get
+                        -   list
+                        -   patch
+                        -   watch
+        documentSelector:
+            path: kind
+            value: ClusterRole
+        it: Lets the ClientExtension controller watch every namespace when it is enabled
+        set:
+            clientExtensions.enabled: true
+    -   asserts:
+            -   equal:
+                    path: rules[?(@.resources[0]=="namespaces")].verbs
+                    value:
+                        -   get
+            -   exists:
+                    path: rules[?(@.resources[0]=="liferayenvironments")]
+            -   notExists:
+                    path: rules[?(@.resources[0]=="secrets")]
+            -   notExists:
+                    path: rules[?(@.resources[0]=="statefulsets")]
+        documentIndex: 0
+        it: Limits the operator cluster role to discovery and reading namespaces in the namespace scope
+        set:
+            rbac.scope: namespace
+    -   asserts:
+            -   exists:
+                    path: rules[?(@.resources[0]=="secrets")]
+            -   exists:
+                    path: rules[?(@.resources[0]=="statefulsets")]
+            -   notExists:
+                    path: rules[?(@.resources[0]=="customresourcedefinitions")]
+            -   notExists:
+                    path: rules[?(@.resources[0]=="namespaces")]
+        documentSelector:
+            path: metadata.name
+            value: dxp-operator-namespace-cluster-role
+        it: Moves the namespaced rules to an unbound namespace cluster role in the namespace scope
+        set:
+            rbac.scope: namespace
+    -   asserts:
+            -   equal:
                     path: metadata.name
                     value: my-release-liferay-dxp-operator
             -   equal:
@@ -176,6 +269,12 @@ tests:
             value: ServiceAccount
         it: Omits the service account annotations by default
     -   asserts:
+            -   hasDocuments:
+                    count: 5
+        it: Renders the namespace cluster role and its binding in the operator namespace in addition in the namespace scope
+        set:
+            rbac.scope: namespace
+    -   asserts:
             -   contains:
                     content:
                         apiGroups:
@@ -194,9 +293,7 @@ tests:
                             -   namespaces
                         verbs:
                             -   get
-                            -   list
-                            -   update
-                            -   watch
+                            -   patch
                     path: rules
             -   contains:
                     content:

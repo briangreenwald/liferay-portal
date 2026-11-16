@@ -45,6 +45,12 @@ tests:
             clientExtensions.enabled: "yes"
     -   asserts:
             -   failedTemplate:
+                    errorPattern: scope
+        it: Rejects an unknown RBAC scope
+        set:
+            rbac.scope: cluster-wide
+    -   asserts:
+            -   failedTemplate:
                     errorPattern: maxDelayy
         it: Rejects an unknown key inside a values object
         set:

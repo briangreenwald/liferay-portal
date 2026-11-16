@@ -57,6 +57,7 @@ provisioning:
 provisioningGracePeriod: 168h
 rbac:
     create: true
+    scope: cluster
 replicaCount: 1
 resources:
     limits:

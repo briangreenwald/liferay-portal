@@ -53,6 +53,8 @@ spec:
                             value: {{ .Values.provisioning.baseURL | quote }}
                         -   name: PROVISIONING_GRACE_PERIOD
                             value: {{ .Values.provisioningGracePeriod | quote }}
+                        -   name: RBAC_SCOPE
+                            value: {{ .Values.rbac.scope | quote }}
                         -   name: RETRY_INITIAL_DELAY
                             value: {{ .Values.retry.initialDelay | quote }}
                         -   name: RETRY_MAX_DELAY

@@ -315,8 +315,16 @@
 			"description": "RBAC resources.",
 			"properties": {
 				"create": {
-					"description": "Creates the operator ClusterRole and ClusterRoleBinding.",
+					"description": "Creates the operator ClusterRoles and ClusterRoleBinding.",
 					"type": "boolean"
+				},
+				"scope": {
+					"description": "Where the operator holds its permissions. cluster grants every permission cluster wide. namespace grants cluster wide only discovery of LiferayEnvironments and ClientExtensions, reading Namespaces, and reading CustomResourceDefinitions, and ships ClusterRole dxp-operator-namespace-cluster-role, which each namespace the operator manages binds to the operator ServiceAccount. The chart binds it in the operator namespace itself.",
+					"enum": [
+						"cluster",
+						"namespace"
+					],
+					"type": "string"
 				}
 			},
 			"type": "object"
